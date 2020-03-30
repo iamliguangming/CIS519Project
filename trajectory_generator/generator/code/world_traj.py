@@ -1,7 +1,7 @@
 import numpy as np
 
-from proj1_3.code.graph_search import graph_search
-from proj1_3.code.occupancy_map import OccupancyMap # Recommended.
+from generator.code.graph_search import graph_search
+from generator.code.occupancy_map import OccupancyMap # Recommended.
 
 class WorldTraj(object):
     # max_Velocity = 0.5

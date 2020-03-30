@@ -6,3 +6,6 @@
 *.synctex.gz
 *.bst
 __pycache__
+__pycache__/*
+aerial_robotics.egg-info
+aerial_robotics.egg-info/*

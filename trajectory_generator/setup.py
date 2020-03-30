@@ -2,7 +2,7 @@ from distutils.core import setup
 from os.path import isdir
 from itertools import product
 
-packages = ['flightsim','sandbox']
+packages = ['flightsim','generator']
 
 setup(
     name='aerial_robotics',

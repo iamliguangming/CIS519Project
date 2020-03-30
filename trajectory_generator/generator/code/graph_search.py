@@ -4,7 +4,7 @@ import numpy as np
 import math
 
 from flightsim.world import World
-from proj1_3.code.occupancy_map import OccupancyMap # Recommended.
+from generator.code.occupancy_map import OccupancyMap # Recommended.
 
 def graph_search(world, resolution, margin, start, goal, astar):
     """
