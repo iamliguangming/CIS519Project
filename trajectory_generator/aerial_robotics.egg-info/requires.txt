@@ -1,5 +1,0 @@
-cvxopt
-matplotlib
-numpy
-scipy
-timeout_decorator
