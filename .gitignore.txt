@@ -5,3 +5,4 @@
 *.out
 *.synctex.gz
 *.bst
+__pycache__
