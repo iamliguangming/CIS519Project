@@ -259,8 +259,7 @@ class World(object):
     @classmethod
     def random_block(cls, lower_bounds,upper_bounds,block_width, block_height, num_blocks,robot_radii,margin):
         """
-                Return World object describing a random forest block parameterized by
-                arguments.
+                Return World object describing bounds of the world, random blocks, random start and goal position
 
                 Parameters:
                     upper_bounds, a tuple of (xmin,ymin, zmin)  world boundary
@@ -286,6 +285,7 @@ class World(object):
         extents = list(np.round([pt[0] - w / 2, pt[0] + w / 2, pt[1] - w / 2, pt[1] + w / 2, pt[2] - h / 2, pt[2] + h / 2], 2))
         blocks.append({'extents': extents, 'color': [1, 0, 0]})
 
+        # Generate given number of blocks and make sure each of them is not too close from each other so that there will always be feasible path for the quadrotor to fly through
         if num_blocks>1:
             numb = 1
             while True:
@@ -323,6 +323,7 @@ class World(object):
                 else:
                     continue
         #Start  position
+        # Generate random start position and make sure the start position has at least (margin+robot_radius) distance from the closest point on blocks
         while True:
             xs1 = np.random.uniform(lower_bounds[0] + (robot_radii+margin), upper_bounds[0] - (robot_radii+margin))
             ys1 = np.random.uniform(lower_bounds[1] + (robot_radii+margin), upper_bounds[1] - (robot_radii+margin))
@@ -334,9 +335,6 @@ class World(object):
 
             p = np.empty_like(pt1)
             for block in blocks:
-                # Computation takes advantage of axes-aligned blocks. Note that
-                # scipy.spatial.Rectangle can compute this distance, but wouldn't
-                # return the point itself.
                 r = block['extents']
                 for i in range(3):
                     p[:, i] = np.clip(pt1[:, i], r[2 * i], r[2 * i + 1])
@@ -352,6 +350,9 @@ class World(object):
             else:
                 continue
         #Goal position
+        # Generate random goal position
+        # make sure the goal position has at least (margin+robot_radius) distance from the closest point on blocks and its has certain tranvel distance from the start position.
+        travel_distance=3
         while True:
             xs2 = np.random.uniform(lower_bounds[0] + (robot_radii + margin),
                                     upper_bounds[0] - (robot_radii + margin))
@@ -366,9 +367,6 @@ class World(object):
 
             p = np.empty_like(pt2)
             for block in blocks:
-                # Computation takes advantage of axes-aligned blocks. Note that
-                # scipy.spatial.Rectangle can compute this distance, but wouldn't
-                # return the point itself.
                 r = block['extents']
                 for i in range(3):
                     p[:, i] = np.clip(pt2[:, i], r[2 * i], r[2 * i + 1])
@@ -376,7 +374,7 @@ class World(object):
                 mask = d < closest_distances
                 closest_points[mask, :] = p[mask, :]
                 closest_distances[mask] = d[mask]
-            if closest_distances[0] > robot_radii + margin and np.linalg.norm(np.array([start['position'][0],start['position'][0],start['position'][0]])-np.array([pt2[0][0], pt2[0][1], pt2[0][2]]))>3:
+            if closest_distances[0] > robot_radii + margin and np.linalg.norm(np.array([start['position'][0],start['position'][0],start['position'][0]])-np.array([pt2[0][0], pt2[0][1], pt2[0][2]]))>travel_distance:
                 goal = {'position': [pt2[0][0], pt2[0][1], pt2[0][2]]}
                 # print(closest_points, closest_distances)
                 break
@@ -385,26 +383,6 @@ class World(object):
                 continue
         world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
         return cls(world_data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
