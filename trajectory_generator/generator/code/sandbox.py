@@ -22,12 +22,12 @@ from generator.code.world_traj import WorldTraj
 # Improve figure display on high DPI screens.   
 # mpl.rcParams['figure.dpi'] = 200
 
-def sandbox(filename):
+def sandbox(world,start,goal):
     # Load the test example.
-    file = Path(inspect.getsourcefile(lambda:0)).parent.resolve() / '..' / 'util' / filename
-    world = World.from_file(file)          # World boundary and obstacles.
-    start  = world.world['start']          # Start point, shape=(3,)
-    goal   = world.world['goal']           # Goal point, shape=(3,)
+    # file = Path(inspect.getsourcefile(lambda:0)).parent.resolve() / '..' / 'util' / filename
+    # world = World.from_file(file)          # World boundary and obstacles.
+    # start  = world.world['start']          # Start point, shape=(3,)
+    # goal   = world.world['goal']           # Goal point, shape=(3,)
     
     # This object defines the quadrotor dynamical model and should not be changed.
     quadrotor = Quadrotor(quad_params)
@@ -239,6 +239,12 @@ def sandbox(filename):
 
 
 if __name__ == '__main__':
-    filename = '../util/test_maze.json'
-    df = sandbox(filename)
+    world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), block_width=0.5, block_height=1.5,
+                               num_blocks=4, robot_radii=0.25, margin=0.2)  # World boundary and obstacles.
+    start = world.world['start']  # Start point, shape=(3,)
+    goal = world.world['goal']  # Goal point, shape=(3,)
+    df = sandbox(world,start,goal)
     print(df.head())
+
+
+

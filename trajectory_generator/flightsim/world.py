@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import math
 
 from flightsim.shapes import Cuboid
 from flightsim.numpy_encoding import NumpyJSONEncoder, to_ndarray
@@ -144,6 +145,8 @@ class World(object):
 
         bounds_artists = self.draw_empty_world(ax)
         block_artists = []
+
+
         for b in self.world.get('blocks', []):
             (xmin, xmax, ymin, ymax, zmin, zmax) = b['extents']
             c = Cuboid(ax, xmax-xmin, ymax-ymin, zmax-zmin, alpha=0.6, linewidth=1, edgecolors='k', facecolors=b.get('color', None))
@@ -252,6 +255,131 @@ class World(object):
 
         world_data = {'bounds': bounds, 'blocks': blocks}
         return cls(world_data)
+
+    @classmethod
+    def random_block(cls, lower_bounds,upper_bounds,block_width, block_height, num_blocks,robot_radii,margin):
+        """
+                Return World object describing a random forest block parameterized by
+                arguments.
+
+                Parameters:
+                    upper_bounds, a tuple of (xmin,ymin, zmin)  world boundary
+                    lower_bounds, a tuple of (xmax, ymax, zmax)
+                    block_width, weight of square cross section trees
+                    block_height, height of trees
+                    num_blocks, number of blocks
+                    robot_radius,margin
+
+                Returns:
+                    world, World object
+                """
+        # Bounds are outer boundary for world, which are an implicit obstacle.
+        bounds = {'extents': [lower_bounds[0], upper_bounds[0], lower_bounds[1], upper_bounds[1], lower_bounds[2], upper_bounds[2]]}
+
+        # Blocks are obstacles in the environment.
+        w, h = block_width, block_height
+        xs = np.random.uniform(lower_bounds[0]+w/2, upper_bounds[0]-w/2)
+        ys = np.random.uniform(lower_bounds[1]+w/2, upper_bounds[1]-w/2)
+        zs = np.random.uniform(lower_bounds[2]+h/2, upper_bounds[2]-h/2)
+        pt=np.array([xs,ys,zs])
+        blocks = []
+        extents = list(np.round([pt[0] - w / 2, pt[0] + w / 2, pt[1] - w / 2, pt[1] + w / 2, pt[2] - h / 2, pt[2] + h / 2], 2))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+
+        if num_blocks>1:
+            numb = 1
+            while True:
+                while True:
+                    flag=0
+                    xs = np.random.uniform(lower_bounds[0] + w / 2, upper_bounds[0] - w / 2)
+                    ys = np.random.uniform(lower_bounds[1] + w / 2, upper_bounds[1] - w / 2)
+                    zs = np.random.uniform(lower_bounds[2] + h / 2, upper_bounds[2] - h / 2)
+                    pt = np.array([xs, ys, zs])
+                    k=0
+                    while True:
+                        if np.linalg.norm(
+                                np.array([blocks[k]['extents'][0] + w / 2, blocks[k]['extents'][2] + w / 2,
+                                          blocks[k]['extents'][4] + h / 2])
+                                - np.array([pt[0], pt[1], pt[2]])
+                        ) < 2 * math.sqrt(2 * w ** 2) + 2 * robot_radii + 2 * margin:
+                            flag=1
+                            break
+                        else:
+                            k+=1
+                        if k>=len(blocks):
+                            break
+
+                    if flag==1:
+                        continue
+                    elif flag==0:
+                        extents = list(np.round([pt[0] - w / 2, pt[0] + w / 2, pt[1] - w / 2, pt[1] + w / 2, pt[2] - h / 2, pt[2] + h / 2], 2))
+                        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+                        numb += 1
+                        break
+
+
+                if numb>=num_blocks:
+                    break
+                else:
+                    continue
+        #Start  position
+        while True:
+            xs1 = np.random.uniform(lower_bounds[0] + (robot_radii+margin), upper_bounds[0] - (robot_radii+margin))
+            ys1 = np.random.uniform(lower_bounds[1] + (robot_radii+margin), upper_bounds[1] - (robot_radii+margin))
+            zs1 = np.random.uniform(lower_bounds[2] + (robot_radii+margin), upper_bounds[2] - (robot_radii+margin))
+            pt1 = np.array([xs1, ys1, zs1]).reshape(1,-1)
+
+            closest_points = np.empty_like(pt1)
+            closest_distances = np.full(pt1.shape[0], np.inf)
+
+            p = np.empty_like(pt1)
+            for block in blocks:
+                r = block['extents']
+                for i in range(3):
+                    p[:, i] = np.clip(pt1[:, i], r[2 * i], r[2 * i + 1])
+                d = np.linalg.norm(pt1 - p, axis=1)
+                mask = d < closest_distances
+                closest_points[mask, :] = p[mask, :]
+                closest_distances[mask] = d[mask]
+            if closest_distances[0]>robot_radii+margin:
+                start = np.array([pt1[0][0], pt1[0][1], pt1[0][2]])
+                # print(closest_points, closest_distances)
+                break
+
+            else:
+                continue
+        #Goal position
+        while True:
+            xs2 = np.random.uniform(lower_bounds[0] + (robot_radii + margin),
+                                    upper_bounds[0] - (robot_radii + margin))
+            ys2 = np.random.uniform(lower_bounds[1] + (robot_radii + margin),
+                                    upper_bounds[1] - (robot_radii + margin))
+            zs2 = np.random.uniform(lower_bounds[2] + (robot_radii + margin),
+                                    upper_bounds[2] - (robot_radii+ margin))
+            pt2 = np.array([xs2, ys2, zs2]).reshape(1, -1)
+
+            closest_points = np.empty_like(pt2)
+            closest_distances = np.full(pt2.shape[0], np.inf)
+
+            p = np.empty_like(pt2)
+            for block in blocks:
+                r = block['extents']
+                for i in range(3):
+                    p[:, i] = np.clip(pt2[:, i], r[2 * i], r[2 * i + 1])
+                d = np.linalg.norm(pt2 - p, axis=1)
+                mask = d < closest_distances
+                closest_points[mask, :] = p[mask, :]
+                closest_distances[mask] = d[mask]
+            if closest_distances[0] > robot_radii + margin and np.linalg.norm(np.array([start[0],start[1],start[2]])-np.array([pt2[0][0], pt2[0][1], pt2[0][2]]))>3:
+                goal = np.array([pt2[0][0], pt2[0][1], pt2[0][2]])
+                # print(closest_points, closest_distances)
+                break
+
+            else:
+                continue
+        world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
+        return cls(world_data)
+
 
 
 if __name__ == '__main__':
