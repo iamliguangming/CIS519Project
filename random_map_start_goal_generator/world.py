@@ -265,12 +265,10 @@ class World(object):
                 Parameters:
                     upper_bounds, a tuple of (xmin,ymin, zmin)  world boundary
                     lower_bounds, a tuple of (xmax, ymax, zmax)
-
-
-
-                    tree_width, weight of square cross section trees
-                    tree_height, height of trees
-                    num_trees, number of trees
+                    block_width, weight of square cross section trees
+                    block_height, height of trees
+                    num_blocks, number of blocks
+                    robot_radius,margin
 
                 Returns:
                     world, World object
