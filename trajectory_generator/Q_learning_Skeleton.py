@@ -7,12 +7,38 @@ Created on Fri Apr 24 13:45:59 2020
 """
 
 import numpy as np 
+from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
 from generator.code.se3_control import SE3Control
 from flightsim.simulate import Quadrotor
+from flightsim.world import World
 
-def get_extended_state(state):
+
+world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), block_width=0.5, block_height=1.5,
+                               num_blocks=4, robot_radii=0.25, margin=0.2)  # World boundary and obstacles.
+resolution=(.1, .1, .1)
+margin=.2
+occ_map = OccupancyMap(world,resolution,margin)
+
+
+
+def search_direction(position_index,direction,steps,occ_map):
+    """
+    This subrountine takes in current position and direction searched within
+    a specific map and returns the steps to the closest obstacle in the 
+    specified direction.
+    If there is no obstacle within the steps, return 0
+    
+    """
+    for i in range(1,steps+1):
+        current_index = position_index + i*np.array(direction)
+        if occ_map.is_occupied_index(
+                current_index)or not occ_map.is_valid_index(current_index):
+            return i
+    return 0
+        
+def get_extended_state(state, occ_map):
     """
     Input: state as a dictionary
             x, position, m, shape=(3,)
@@ -22,10 +48,37 @@ def get_extended_state(state):
     Return: Updated  state as a dictionary
             x, position, m, shape=(3,)
             v, linear velocity, m/s, shape=(3,)
-            q, quaternion [i,j,k,w], shape=(4,) (Should be using Euler Angle)
+            theta, Euler Angle, rad, shape = (3,)
             w, angular velocity, rad/s, shape=(3,)
-            d, closest neighbor distance, # of blocks, shape(10,)
+            d, closest neighbor distance, # of blocks, shape(14,)
     """
+    position = state['x']
+    velocity = state['v']
+    orientation = Rotation.from_quat(state['q'])
+    theta = orientation.as_euler('XYZ')
+    w = state['w']
+    position_index = occ_map.metric_to_index(position)
+    d = np.array([search_direction(position_index, [1,0,0], 3, occ_map),
+                  search_direction(position_index, [0,1,0], 3, occ_map),
+                  search_direction(position_index, [0,0,1], 3, occ_map),
+                  search_direction(position_index, [1,1,1], 3, occ_map),
+                  search_direction(position_index, [-1,0,0], 3, occ_map),
+                  search_direction(position_index, [0,-1,0], 3, occ_map),
+                  search_direction(position_index, [0,0,-1], 3, occ_map),
+                  search_direction(position_index, [-1,-1,-1], 3, occ_map),
+                  search_direction(position_index, [1,1,-1], 3, occ_map),
+                  search_direction(position_index, [1,-1,1], 3, occ_map),
+                  search_direction(position_index, [1,-1,-1], 3, occ_map),
+                  search_direction(position_index, [-1,1,1], 3, occ_map),
+                  search_direction(position_index, [-1,-1,1], 3, occ_map),
+                  search_direction(position_index, [-1,1,-1], 3, occ_map)])
+    
+    extended_state = {'x':position,
+                      'v':velocity,
+                      'theta':theta,
+                      'w':w,
+                      'd':d}
+    
     return extended_state
 
 # The following section is for Q learning
