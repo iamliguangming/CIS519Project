@@ -11,17 +11,36 @@ from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
 from generator.code.se3_control import SE3Control
+from generator.code.world_traj import WorldTraj
+from flightsim.simulate import simulate
 from flightsim.simulate import Quadrotor
 from flightsim.world import World
 
 
-world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), block_width=0.5, block_height=1.5,
-                               num_blocks=4, robot_radii=0.25, margin=0.2)  # World boundary and obstacles.
+world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), 
+                           block_width=0.5, block_height=1.5,
+                           num_blocks=4, robot_radii=0.25, margin=0.2) 
 resolution=(.1, .1, .1)
 margin=.2
 occ_map = OccupancyMap(world,resolution,margin)
+my_se3_control = SE3Control(quad_params)
+start = world.world['start']  # Start point, shape=(3,)
+goal = world.world['goal']  # Goal point, shape=(3,)
+my_world_traj = WorldTraj(world, start, goal)
+t_final = 60
+quadrotor = Quadrotor(quad_params)
+initial_state = {'x': start,
+                    'v': (0, 0, 0),
+                    'q': (0, 0, 0, 1), # [i,j,k,w]
+                    'w': (0, 0, 0)}
+(sim_time, state, control, flat, exit) = simulate(initial_state,
+                                                  quadrotor,
+                                                  my_se3_control,
+                                                  my_world_traj,
+                                                  t_final)
 
-
+action_List = control['cmd_motor_speeds']
+t_step = 2e-3
 
 def search_direction(position_index,direction,steps,occ_map):
     """
@@ -81,6 +100,22 @@ def get_extended_state(state, occ_map):
     
     return extended_state
 
+vectorized_extended_state_List = np.zeros((state['x'].shape[0],30))
+for i in range(state['x'].shape[0]):
+    current_state = {'x':state['x'][i],
+                     'v':state['v'][i],
+                     'q':state['q'][i],
+                     'w':state['w'][i],
+                     }
+    extended_state = get_extended_state(current_state, occ_map)
+    vectorized_extended_state = np.concatenate((extended_state['x'],
+                                                extended_state['v'],
+                                                extended_state['theta'],
+                                                extended_state['w'],
+                                                extended_state['d'],
+                                                action_List[i,:]),axis=0)
+    vectorized_extended_state_List[i] = vectorized_extended_state
+    
 # The following section is for Q learning
 
 def discretize(state, discretization, env):
@@ -217,16 +252,16 @@ def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_ra
     
     return Q, position_list, success_list, frames
 
-num_states = (env.observation_space.high - env.observation_space.low)*discretization
-#Size of discretized state space 
-num_states = np.round(num_states, 0).astype(int) + 1
-# Initialize Q table
-Q = np.random.uniform(low = -1, 
-                      high = 1, 
-                      size = (num_states[0], num_states[1], env.action_space.n))
+# num_states = (env.observation_space.high - env.observation_space.low)*discretization
+# #Size of discretized state space 
+# num_states = np.round(num_states, 0).astype(int) + 1
+# # Initialize Q table
+# Q = np.random.uniform(low = -1, 
+#                       high = 1, 
+#                       size = (num_states[0], num_states[1], env.action_space.n))
 
-# Run Q Learning by calling your Qlearning() function
-Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
+# # Run Q Learning by calling your Qlearning() function
+# Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
 
 class StatesNetwork(nn.Module):
   '''
@@ -244,5 +279,6 @@ class StatesNetwork(nn.Module):
         @return: torch.Tensor((B,dim_of_actions))
         """
     
-        return forward_pass
+    return forward_pass
 
+# def train():
