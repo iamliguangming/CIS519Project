@@ -12,6 +12,7 @@ from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
 from generator.code.se3_control import SE3Control
 from generator.code.world_traj import WorldTraj
+from generator.code.graph_search import graph_search
 from flightsim.simulate import simulate
 from flightsim.simulate import Quadrotor
 from flightsim.world import World
@@ -23,24 +24,36 @@ world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
 resolution=(.1, .1, .1)
 margin=.2
 occ_map = OccupancyMap(world,resolution,margin)
-my_se3_control = SE3Control(quad_params)
+# my_se3_control = SE3Control(quad_params)
 start = world.world['start']  # Start point, shape=(3,)
 goal = world.world['goal']  # Goal point, shape=(3,)
-my_world_traj = WorldTraj(world, start, goal)
-t_final = 60
+# my_world_traj = WorldTraj(world, start, goal)
+my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
+start = my_path[0]
+goal = my_path[-1]
+# t_final = 60
 quadrotor = Quadrotor(quad_params)
-initial_state = {'x': start,
-                    'v': (0, 0, 0),
-                    'q': (0, 0, 0, 1), # [i,j,k,w]
-                    'w': (0, 0, 0)}
-(sim_time, state, control, flat, exit) = simulate(initial_state,
-                                                  quadrotor,
-                                                  my_se3_control,
-                                                  my_world_traj,
-                                                  t_final)
+# initial_state = {'x': start,
+#                     'v': (0, 0, 0),
+#                     'q': (0, 0, 0, 1), # [i,j,k,w]
+#                     'w': (0, 0, 0)}
+# (sim_time, state, control, flat, exit) = simulate(initial_state,
+#                                                   quadrotor,
+#                                                   my_se3_control,
+#                                                   my_world_traj,
+#                                                   t_final)
 
-action_List = control['cmd_motor_speeds']
-t_step = 2e-3
+
+action_List = np.zeros((my_path.shape))
+discretized_path = np.zeros((my_path.shape))
+for i in range(discretized_path.shape[0]):
+    discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
+for i in range(1,my_path.shape[0]):
+    try:
+        action_List[i,:] = discretized_path[i]-discretized_path[i-1]
+    except:
+        action_List[i,:] = np.zeros(3)
+# t_step = 2e-3
 
 def search_direction(position_index,direction,steps,occ_map):
     """
@@ -59,24 +72,16 @@ def search_direction(position_index,direction,steps,occ_map):
         
 def get_extended_state(state, occ_map):
     """
-    Input: state as a dictionary
-            x, position, m, shape=(3,)
-            v, linear velocity, m/s, shape=(3,)
-            q, quaternion [i,j,k,w], shape=(4,)
-            w, angular velocity, rad/s, shape=(3,)
-    Return: Updated  state as a dictionary
-            x, position, m, shape=(3,)
-            v, linear velocity, m/s, shape=(3,)
-            theta, Euler Angle, rad, shape = (3,)
-            w, angular velocity, rad/s, shape=(3,)
+    Input: state as a vector (p,v)
+            p, discretized_Position shape = (3,)
+            v, discretized directions shape = (3,)
+    Return: Updated  state as a vector (p,v,d)
+            p, discretized_Position shape = (3,)
+            v, discretized directions shape = (3,)
             d, closest neighbor distance, # of blocks, shape(14,)
     """
-    position = state['x']
-    velocity = state['v']
-    orientation = Rotation.from_quat(state['q'])
-    theta = orientation.as_euler('XYZ')
-    w = state['w']
-    position_index = occ_map.metric_to_index(position)
+    position_index = state[0:3]
+    direction = state[3:6]
     d = np.array([search_direction(position_index, [1,0,0], 3, occ_map),
                   search_direction(position_index, [0,1,0], 3, occ_map),
                   search_direction(position_index, [0,0,1], 3, occ_map),
@@ -92,11 +97,7 @@ def get_extended_state(state, occ_map):
                   search_direction(position_index, [-1,-1,1], 3, occ_map),
                   search_direction(position_index, [-1,1,-1], 3, occ_map)])
     
-    extended_state = {'x':position,
-                      'v':velocity,
-                      'theta':theta,
-                      'w':w,
-                      'd':d}
+    extended_state = np.append(state,d)
     
     return extended_state
 
