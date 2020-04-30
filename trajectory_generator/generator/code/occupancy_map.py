@@ -191,7 +191,7 @@ class OccupancyMap:
         """
         return self.map[tuple(voxel_index)]
 
-    def is_occupied_metric(self, voxel_metric):
+    def ric):
         """
         Test if a metric point is within an occupied voxel.
         Returns True if occupied, False otherwise.
