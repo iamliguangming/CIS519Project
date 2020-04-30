@@ -7,7 +7,9 @@ Created on Fri Apr 24 13:45:59 2020
 """
 
 import numpy as np 
+import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
@@ -17,56 +19,6 @@ from generator.code.graph_search import graph_search
 from flightsim.simulate import simulate
 from flightsim.simulate import Quadrotor
 from flightsim.world import World
-
-
-world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), 
-                           block_width=0.5, block_height=1.5,
-                           num_blocks=4, robot_radii=0.25, margin=0.2) 
-resolution=(.1, .1, .1)
-margin=.2
-occ_map = OccupancyMap(world,resolution,margin)
-# my_se3_control = SE3Control(quad_params)
-start = world.world['start']  # Start point, shape=(3,)
-goal = world.world['goal']  # Goal point, shape=(3,)
-# my_world_traj = WorldTraj(world, start, goal)
-my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
-start = my_path[0]
-goal = my_path[-1]
-# t_final = 60
-quadrotor = Quadrotor(quad_params)
-# initial_state = {'x': start,
-#                     'v': (0, 0, 0),
-#                     'q': (0, 0, 0, 1), # [i,j,k,w]
-#                     'w': (0, 0, 0)}
-# (sim_time, state, control, flat, exit) = simulate(initial_state,
-#                                                   quadrotor,
-#                                                   my_se3_control,
-#                                                   my_world_traj,
-#                                                   t_final)
-class Args(object):
-    pass
-
-args = Args()
-args.occ_map = occ_map
-
-
-action_List = np.zeros((my_path.shape))
-discretized_path = np.zeros((my_path.shape))
-
-for i in range(discretized_path.shape[0]):
-    discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
-for i in range(discretized_path.shape[0]):
-    try:
-        action_List[i,:] = discretized_path[i+1]-discretized_path[i]
-    except:
-        action_List[i,:] = np.zeros(3)
-        
-discretized_path = discretized_path.astype(int)
-action_List = action_List.astype(int)
-goal_index = discretized_path[-1]
-args.goal = goal_index
-args.search_range = 3 
-# t_step = 2e-3
 
 def search_direction(position_index,direction,steps,occ_map,args):
     """
@@ -114,16 +66,6 @@ def get_extended_state(state, occ_map, args):
     extended_state = np.append(extended_state,args.goal)
     
     return extended_state
-
-# ext = get_extended_state(discretized_path[0], occ_map,args)
-
-extended_state_List = np.zeros((discretized_path.shape[0],20))
-for i in range(discretized_path.shape[0]):
-    current_state = discretized_path[i]
-    extended_state = get_extended_state(current_state, occ_map,args)
-
-
-    extended_state_List[i] = extended_state
     
 # The following section is for Q learning
 def step(args, state, action):
@@ -285,17 +227,6 @@ def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_ra
     
     return Q, position_list, success_list, frames
 
-# num_states = (env.observation_space.high - env.observation_space.low)*discretization
-# #Size of discretized state space 
-# num_states = np.round(num_states, 0).astype(int) + 1
-# # Initialize Q table
-# Q = np.random.uniform(low = -1, 
-#                       high = 1, 
-#                       size = (num_states[0], num_states[1], env.action_space.n))
-
-# # Run Q Learning by calling your Qlearning() function
-# Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
-
 class QNetwork(nn.Module):
     '''
     This NN should take state action pairs and return a Q value
@@ -322,4 +253,94 @@ class QNetwork(nn.Module):
       
         return forward_pass
 
-# def train():
+def load_dataset(x, y, batch_size=64):
+    '''
+    load data for neural network
+    
+    Args:
+        x: state action pairs
+        y: Q value labels
+        
+    '''    
+    x = torch.tensor(x).float()
+    y = torch.tensor(y).float()
+    dataset = torch.utils.data.TensorDataset(x,y)
+    dataloader = DataLoader(dataset, batch_size=batch_size)
+    
+    return dataloader
+
+def get_args():
+    class Args(object):
+        pass
+    
+    args = Args()
+    args.occ_map = occ_map
+    
+    return args
+
+if __name__ == '__main__':
+    world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), 
+                           block_width=0.5, block_height=1.5,
+                           num_blocks=4, robot_radii=0.25, margin=0.2) 
+    resolution=(.1, .1, .1)
+    margin=.2
+    occ_map = OccupancyMap(world,resolution,margin)
+    # my_se3_control = SE3Control(quad_params)
+    start = world.world['start']  # Start point, shape=(3,)
+    goal = world.world['goal']  # Goal point, shape=(3,)
+    # my_world_traj = WorldTraj(world, start, goal)
+    my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
+    start = my_path[0]
+    goal = my_path[-1]
+    # t_final = 60
+    quadrotor = Quadrotor(quad_params)
+    # initial_state = {'x': start,
+    #                     'v': (0, 0, 0),
+    #                     'q': (0, 0, 0, 1), # [i,j,k,w]
+    #                     'w': (0, 0, 0)}
+    # (sim_time, state, control, flat, exit) = simulate(initial_state,
+    #                                                   quadrotor,
+    #                                                   my_se3_control,
+    #                                                   my_world_traj,
+    #                                                   t_final)
+    args = get_args()
+    
+    
+    action_List = np.zeros((my_path.shape))
+    discretized_path = np.zeros((my_path.shape))
+    
+    for i in range(discretized_path.shape[0]):
+        discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
+    for i in range(discretized_path.shape[0]):
+        try:
+            action_List[i,:] = discretized_path[i+1]-discretized_path[i]
+        except:
+            action_List[i,:] = np.zeros(3)
+            
+    discretized_path = discretized_path.astype(int)
+    action_List = action_List.astype(int)
+    goal_index = discretized_path[-1]
+    args.goal = goal_index
+    args.search_range = 3 
+    # t_step = 2e-3
+    
+    # ext = get_extended_state(discretized_path[0], occ_map,args)
+
+    extended_state_List = np.zeros((discretized_path.shape[0],20))
+    for i in range(discretized_path.shape[0]):
+        current_state = discretized_path[i]
+        extended_state = get_extended_state(current_state, occ_map,args)
+    
+    
+        extended_state_List[i] = extended_state
+        
+    # num_states = (env.observation_space.high - env.observation_space.low)*discretization
+    # #Size of discretized state space 
+    # num_states = np.round(num_states, 0).astype(int) + 1
+    # # Initialize Q table
+    # Q = np.random.uniform(low = -1, 
+    #                       high = 1, 
+    #                       size = (num_states[0], num_states[1], env.action_space.n))
+    
+    # # Run Q Learning by calling your Qlearning() function
+    # Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
