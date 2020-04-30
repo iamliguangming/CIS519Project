@@ -6,7 +6,7 @@ Created on Fri Apr 24 13:45:59 2020
 @author: yupengli
 """
 
-import numpy as np 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -20,66 +20,106 @@ from flightsim.simulate import simulate
 from flightsim.simulate import Quadrotor
 from flightsim.world import World
 
-def search_direction(position_index,direction,steps,occ_map,args):
+def search_direction(args, position_index, direction, steps):
     """
     This subrountine takes in current position and direction searched within
-    a specific map and returns the steps to the closest obstacle in the 
+    a specific map and returns the steps to the closest obstacle in the
     specified direction.
     If there is no obstacle within the steps, return 0
-    
+
     """
+    occ_map = args.occ_map
     for i in range(1,steps+1):
         current_index = position_index + i*np.array(direction)
         if occ_map.is_occupied_index(
                 current_index)or not occ_map.is_valid_index(current_index):
             return i
     return 0
-        
-def get_extended_state(state, occ_map, args):
-    
+
+def get_warmup_data(args, state, action):
     """
-    Input: state as a vector (p,v)
+    Input: state a vector (p)   p = (3,)
+           action a vector (a)  a = (3,)
+
+    Output: train_set = nparray(27,23(20+3))
+            label = nparray((27,))
+
+    """
+    chosen_action = action
+    extened_state = get_extended_state(state)   ##(20,)
+    extened_state = np.tile(extened_state, (27,1))   ##(27,20)
+    all_action =                                ##(27,3)
+    [[-1, -1, -1],[-1, -1, 0],[-1, -1, 1],
+     [-1, 0, -1], [-1, 0, 0], [-1, 0, 1],
+     [-1, 1, -1], [-1, 1, 0], [-1, 1, 1],
+     [0, -1, -1], [0, -1, 0], [0, -1, 1],
+     [0, 0, -1],  [0, 0, 0],  [0, 0, 1],
+     [0, 1, -1],  [0, 1, 0],  [0, 1, 1],
+     [1, -1, -1], [1, -1, 0], [1, -1, 1],
+     [1, 0, -1],  [1, 0, 0],  [1, 0, 1],
+     [1, 1, -1],  [1, 1, 0],  [1, 1, 1]]
+
+    nonchosen_action = all_action.remove(chosen_action)  ##list (26,3)
+    nonchosen_action = np.asarray(nonchosen_action)
+    next_state_nonchosen = nonchosen_action + np.tile(state,(26,1)) ##array(26,3)
+    Q_list=[]
+    for i in range(next_state_nonchosen):
+        if args.occ_map.is_valid_index(i) and not args.occ_map.is_occupied_index(i):
+            Q_list.append(-1)   #non_chosen action in open space
+        else:
+            Q_list.append(-10)   #non_chosen action with collision
+
+    all_action = np.append(nonchosen_action,chosen_action) ##(27,3)
+    Q_list.append(1)    #chosen action
+
+    train_set = np.vstack((extened_state,all_action))  ##(27,20+3)
+    train_labels = np.asarray(Q_list).flatten()
+    return train_set, train_labels
+
+def get_extended_state(args, state):
+
+    """
+    Input: state as a vector (p)
             p, discretized_Position shape = (3,)
-            v, discretized directions shape = (3,)
     Return: Updated  state as a vector (p,v,d)
             p, discretized_Position shape = (3,)
             v, discretized directions shape = (3,)
             d, closest neighbor distance, # of blocks, shape(14,)
     """
     position_index = state
-    d = np.array([search_direction(position_index, [1,0,0], 3, occ_map,args),
-                  search_direction(position_index, [0,1,0], 3, occ_map,args),
-                  search_direction(position_index, [0,0,1], 3, occ_map,args),
-                  search_direction(position_index, [1,1,1], 3, occ_map,args),
-                  search_direction(position_index, [-1,0,0], 3, occ_map,args),
-                  search_direction(position_index, [0,-1,0], 3, occ_map,args),
-                  search_direction(position_index, [0,0,-1], 3, occ_map,args),
-                  search_direction(position_index, [-1,-1,-1], 3, occ_map,args),
-                  search_direction(position_index, [1,1,-1], 3, occ_map,args),
-                  search_direction(position_index, [1,-1,1], 3, occ_map,args),
-                  search_direction(position_index, [1,-1,-1], 3, occ_map,args),
-                  search_direction(position_index, [-1,1,1], 3, occ_map,args),
-                  search_direction(position_index, [-1,-1,1], 3, occ_map,args),
-                  search_direction(position_index, [-1,1,-1], 3, occ_map,args)])
-    
+    d = np.array([search_direction(args, position_index, [1,0,0], 3),
+                  search_direction(args, position_index, [0,1,0], 3),
+                  search_direction(args, position_index, [0,0,1], 3),
+                  search_direction(args, position_index, [1,1,1], 3),
+                  search_direction(args, position_index, [-1,0,0], 3),
+                  search_direction(args, position_index, [0,-1,0], 3),
+                  search_direction(args, position_index, [0,0,-1], 3),
+                  search_direction(args, position_index, [-1,-1,-1], 3),
+                  search_direction(args, position_index, [1,1,-1], 3),
+                  search_direction(args, position_index, [1,-1,1], 3),
+                  search_direction(args, position_index, [1,-1,-1], 3),
+                  search_direction(args, position_index, [-1,1,1], 3),
+                  search_direction(args, position_index, [-1,-1,1], 3),
+                  search_direction(args, position_index, [-1,1,-1], 3)])
+
     extended_state = np.append(state,d)
     extended_state = np.append(extended_state,args.goal)
-    
+
     return extended_state
-    
+
 # The following section is for Q learning
 def step(args, state, action):
     """
     Inputs:
-    state: Original state with only position indices :np array (3,)
+    state: Original state with only position indices: np array (3,)
     action: Action array (3,)
-    args
+    args, an object with set of parameters and objects
     Output: Updated State (3,)
             Reward of the action
             Done: Boolean, True if reaches the goal or hit the wall
-    
+
     """
-    done = False 
+    done = False
     distance_before_action = np.linalg.norm(args.goal - state)
     state = state + action
     distance_after_action =  np.linalg.norm(args.goal - state)
@@ -90,129 +130,158 @@ def step(args, state, action):
         reward = -10
         done = True
     elif (state == args.goal).all():
+        reward = 10
         done = True
 
     return state, reward, done
-def discretize(state, discretization, env):
+
+def get_pair(args, state, action):
     """
-    Need to work on this
+    Get the extended state + action vector
+
+    Input: args: The argument dictionary
+           state : The raw state (3,)
+           action : T
     """
-    env_minimum = env.observation_space.low
-    state_adj = (state - env_minimum)*discretization
-    discretized_state = np.round(state_adj, 0).astype(int)
+    extended_state = get_extended_state(args, state)
+    extended_state_action = np.append(extended_state,action)
+    return extended_state_action
 
-    return discretized_state
+def get_all_pairs(args, state):
+    """
+    Combine states and actions to pairs
+    Args:
+        args, an object with set of parameters and objects
+        state: Original state with only position indices: np array (3,)
+    """
+    all_pairs = np.zeros((27,23))
+    action_array = np.zeros((27,3))
+    count = 0
+    for i in range(-1,2):
+        for j in range(-1,2):
+            for k in range(-1,2):
+                action = np.array([i,j,k])
+                action_array[count] = action
+                all_pairs[count] = get_pair(args,state,action)
+                count += 1
+    return all_pairs, action_array
 
-
-def choose_action(epsilon, Q, state, env):
-    """    
+def choose_action(args,state,epsilon):
+    """
     Choose an action according to an epsilon greedy strategy.
     Args:
+        args, an object with set of parameters and objects
+        state : raw state of position : nparray(3,)
         epsilon (float): the probability of choosing a random action
-        Q (np.array): The Q value matrix, here it is 3D for the two observation states and action states
-        state (Box(2,)): the observation state, here it is [position, velocity]
-        env: the RL environment 
-        
+
     Returns:
-        action (int): the chosen action
+        chosen_action (3,) np_array: the chosen action
+        Q value of chosen_action (int)
     """
-    action = 0
-    if np.random.random() < 1 - epsilon:
-        action = np.argmax(Q[state[0], state[1]]) #Need to change the dim
+    all_pairs, action_array = get_all_pairs(args, state)
+    Q_array = np.zeros(27)
+    for i in range(27):
+        Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
+
+    chosen_action = np.zeros((3,))
+    if np.random.random() < 1 - espilon:
+        chosen_action = action_array[np.argmax(Q_array)]
     else:
-        action = np.random.randint(0, env.action_space.n)
-  
-    return action
+        chosen_action = action_array[np.random.randint(0, 27)]
+
+    return chosen_action, np.max(Q_array)
 
 
 def update_epsilon(epsilon, decay_rate):
     """
     Decay epsilon by the specified rate.
-    
+
     Args:
         epsilon (float): the probability of choosing a random action
         decay_rate (float): the decay rate (between 0 and 1) to scale epsilon by
-        
+
     Returns:
         updated epsilon
     """
-  
+
     epsilon *= decay_rate
 
     return epsilon
 
 
-def update_Q(Q, state_disc, next_state_disc, action, discount, learning_rate, reward, terminal):
+def get_target_Q(args, state, next_state, action, reward, terminal):
     """
-    
-    Update Q values following the Q-learning update rule. 
-    
+
+    Update Q values following the Q-learning update rule.
+
     Be sure to handle the terminal state case.
-    
+
     Args:
-        Q (np.array): The Q value matrix, here it is 3D for the two observation states and action states
-        state_disc (np.array): the discretized version of the current observation state [position, velocity]
-        next_state_disc (np.array): the discretized version of the next observation state [position, velocity]
+        args, an object with set of parameters and objects
+        state (np.array): current state with only position indices: np array (3,)
+        next_state (np.array): next state with only position indices: np array (3,)
         action (int): the chosen action
-        discount (float): the discount factor, may be referred to as gamma
-        learning_rate (float): the learning rate, may be referred to as alpha
         reward (float): the current (immediate) reward
         terminal (bool): flag for whether the state is terminal
-        
+
     Returns:
-        Q, with the [state_disc[0], state_disc[1], action] entry updated.
-    """    
-    if terminal:        
-        Q[state_disc[0], state_disc[1], action] = reward
+        Q, with its value updated.
+    """
+    Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
+    _, next_Q = choose_action(args,next_state,0)
+
+    if terminal:
+        Q = reward
 
     # Adjust Q value for current state
     else:
-        delta = learning_rate*(reward + discount*np.max(Q[next_state_disc[0], next_state_disc[1]]) - Q[state_disc[0], state_disc[1],action])
-        Q[state_disc[0], state_disc[1],action] += delta
-  
+        delta = args.lr*(reward + args.discount*next_Q - Q)
+        Q += delta
+
     return Q
 
+def aggregate_dataset(extended_state_list, Q_array, new_extended_state, new_Q):
+    training_states = np.concatenate((extended_state_list,new_extended_state),axis=0)
+    training_Q = np.concatenate((Q_array,new_Q),axis = 0)
 
-def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes=5000):
+    return training_states, training_Q
+
+def Qlearning(args):
     """
-    
     The main Q-learning function, utilizing the functions implemented above.
     Need to change to choose actions of discretized action space
-          
     """
     reward_list = []
     position_list = []
     success_list = []
-    success = 0 # count of number of successes reached 
-    frames = []
-  
-    for i in range(max_episodes):
+    success = 0 # count of number of successes reached
+
+    for i in range(args.max_episodes):
         # Initialize parameters
         done = False # indicates whether the episode is done
         terminal = False # indicates whether the episode is done AND the car has reached the flag (>=0.5 position)
         tot_reward = 0 # sum of total reward over a single
-        state = env.reset() # initial environment state
-        state_disc = discretize(state,discretization,env)
+        state = args.start_index
 
-        while done != True:                 
-            # Determine next action 
-            action = choose_action(epsilon, Q, state_disc, env)                                      
-            # Get next_state, reward, and done using env.step(), see http://gym.openai.com/docs/#environments for reference
-            if i==1 or i==(max_episodes-1):
-              frames.append(env.render())
-            next_state, reward, done, _ = env.step(action) 
-            # Discretize next state 
-            next_state_disc = discretize(next_state,discretization,env)
+        while done != True:
+            # Determine next action
+            action = choose_action(args,state,args.epsilon)
+            next_state, reward, done = step(args,state,action)
             # Update terminal
-            terminal = done and next_state[0]>=0.5
+            terminal = done and np.linalg.norm(state - args.goal_index) <= args.tol:
             # Update Q
-            Q = update_Q(Q,state_disc,next_state_disc,action,discount,learning_rate, reward, terminal)  
+            Q = get_target_Q(args,state,next_state,action,reward,terminal)
             # Update tot_reward, state_disc, and success (if applicable)
+            state_action_pair = get_pair(args,state,action)
+            args.train_set,arg.train_labels = aggregate_dataset(
+                args.train_set,args.train_labels,state_action_pair,Q)
+            args.dataloader = load_dataset(args.train_set,args.train_labels)
+            train(args)
             tot_reward += reward
-            state_disc = next_state_disc
-            if terminal: success +=1 
-            
-        epsilon = update_epsilon(epsilon, decay_rate) #Update level of epsilon using update_epsilon()
+            state = next_state
+            if terminal: success +=1
+
+        args.epsilon = update_epsilon(args.epsilon, args.decay_rate) #Update level of epsilon using update_epsilon()
 
         # Track rewards
         reward_list.append(tot_reward)
@@ -222,66 +291,105 @@ def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_ra
         if (i+1) % 100 == 0:
             print('Episode: ', i+1, 'Average Reward over 100 Episodes: ',np.mean(reward_list))
             reward_list = []
-                
-    env.close()
-    
-    return Q, position_list, success_list, frames
+
+    return Q, position_list, success_list
 
 class QNetwork(nn.Module):
-    '''
+    """
     This NN should take state action pairs and return a Q value
-    '''
+    """
     def __init__(self):
-        """
-        Your code here
-        """
         super(QNetwork,self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(23, 50),
             nn.ReLU(True),
             nn.Linear(50, 1)
         )
-      
-    def forward(self, x):    
-        """
-        Your code here
-        @x: torch.Tensor((B,dim_of_observation))
-        @return: torch.Tensor((B,dim_of_actions))
-        """
+
+    def forward(self, x):
         x = x.view(x.size(0),-1)
         forward_pass = self.fc(x)
-      
+
         return forward_pass
 
 def load_dataset(x, y, batch_size=64):
-    '''
+    """
     load data for neural network
-    
+
     Args:
         x: state action pairs
         y: Q value labels
-        
-    '''    
+    """
     x = torch.tensor(x).float()
     y = torch.tensor(y).float()
     dataset = torch.utils.data.TensorDataset(x,y)
     dataloader = DataLoader(dataset, batch_size=batch_size)
-    
+
     return dataloader
+
+def train(args):
+    '''
+    Train the model
+
+    Args:
+        args, an object with set of parameters and objects
+
+    Returns:
+        The trained model
+    '''
+    model = args.model
+    optimizer = args.optimizer
+    criterion = args.criterion
+    dataloader = args.dataloader
+
+    running_loss = 0.0
+    running_corrects = 0
+    model.train()
+    for e in range(args.num_epochs):
+        for inputs, labels in (dataloader):
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            _, preds = torch.max(outputs, axis=1)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()* inputs.size(0)
+            running_corrects += torch.sum(preds == labels.data)
+
+        epoch_loss = running_loss / dataset_size
+        epoch_acc = running_corrects.double() / dataset_size
+        print('Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_acc))
+
+    return model
 
 def get_args():
     class Args(object):
         pass
-    
     args = Args()
     args.occ_map = occ_map
-    
+    args.model = QNetwork()
+    args.lr = 0.2
+    args.discount = 0.9
+    args.epsilon = 0.8
+    args.decay_rate = 0.95
+    args.max_episodes = 5000
+    args.tol = 1e-4
+
+    args.train_set = None
+    args.train_labels = None
+    args.dataloader = None
+    # args.dataset_size=0
+    args.batch_size = 120
+    args.num_epochs = 2
+    args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
+    args.criterion = torch.nn.CrossEntropyLoss()
+
     return args
 
 if __name__ == '__main__':
-    world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2), 
+    world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
                            block_width=0.5, block_height=1.5,
-                           num_blocks=4, robot_radii=0.25, margin=0.2) 
+                           num_blocks=4, robot_radii=0.25, margin=0.2)
     resolution=(.1, .1, .1)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
@@ -304,11 +412,12 @@ if __name__ == '__main__':
     #                                                   my_world_traj,
     #                                                   t_final)
     args = get_args()
-    
-    
+
+
+
     action_List = np.zeros((my_path.shape))
     discretized_path = np.zeros((my_path.shape))
-    
+
     for i in range(discretized_path.shape[0]):
         discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
     for i in range(discretized_path.shape[0]):
@@ -316,31 +425,33 @@ if __name__ == '__main__':
             action_List[i,:] = discretized_path[i+1]-discretized_path[i]
         except:
             action_List[i,:] = np.zeros(3)
-            
+
     discretized_path = discretized_path.astype(int)
     action_List = action_List.astype(int)
+    start_index = discretize[0]
     goal_index = discretized_path[-1]
+    args.start = start_index
     args.goal = goal_index
-    args.search_range = 3 
+    args.search_range = 3
     # t_step = 2e-3
-    
+
     # ext = get_extended_state(discretized_path[0], occ_map,args)
 
     extended_state_List = np.zeros((discretized_path.shape[0],20))
     for i in range(discretized_path.shape[0]):
         current_state = discretized_path[i]
-        extended_state = get_extended_state(current_state, occ_map,args)
-    
-    
+        extended_state = get_extended_state(args, current_state, occ_map)
+
+
         extended_state_List[i] = extended_state
-        
+
     # num_states = (env.observation_space.high - env.observation_space.low)*discretization
-    # #Size of discretized state space 
+    # #Size of discretized state space
     # num_states = np.round(num_states, 0).astype(int) + 1
     # # Initialize Q table
-    # Q = np.random.uniform(low = -1, 
-    #                       high = 1, 
+    # Q = np.random.uniform(low = -1,
+    #                       high = 1,
     #                       size = (num_states[0], num_states[1], env.action_space.n))
-    
+
     # # Run Q Learning by calling your Qlearning() function
     # Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
