@@ -7,6 +7,7 @@ Created on Fri Apr 24 13:45:59 2020
 """
 
 import numpy as np 
+import torch.nn as nn
 from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
@@ -295,22 +296,30 @@ def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_ra
 # # Run Q Learning by calling your Qlearning() function
 # Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
 
-# class StatesNetwork(nn.Module):
-#   '''
-#   This NN should take state action pairs and return a Q value
-#   '''
-#   def __init__(self, env):
-#         """
-#         Your code here
-#         """
-    
-#   def forward(self, x):    
-#         """
-#         Your code here
-#         @x: torch.Tensor((B,dim_of_observation))
-#         @return: torch.Tensor((B,dim_of_actions))
-#         """
-    
-#     return forward_pass
+class QNetwork(nn.Module):
+    '''
+    This NN should take state action pairs and return a Q value
+    '''
+    def __init__(self):
+        """
+        Your code here
+        """
+        super(QNetwork,self).__init__()
+        self.fc = nn.Sequential(
+            nn.Linear(23, 50),
+            nn.ReLU(True),
+            nn.Linear(50, 1)
+        )
+      
+    def forward(self, x):    
+        """
+        Your code here
+        @x: torch.Tensor((B,dim_of_observation))
+        @return: torch.Tensor((B,dim_of_actions))
+        """
+        x = x.view(x.size(0),-1)
+        forward_pass = self.fc(x)
+      
+        return forward_pass
 
 # def train():

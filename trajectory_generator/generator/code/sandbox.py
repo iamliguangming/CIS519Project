@@ -222,20 +222,22 @@ def sandbox(world,start,goal):
     data = np.hstack((sim_time.reshape(-1,1),x,x_des,v,v_des,q,q_des,w,
                       s,M,T))
     columns = ['time',
-               'x[1]','x[2]','x[3]',
-               'x_des[1]','x_des[2]','x_des[3]',
-               'v[1]','v[2]','v[3]',
-               'v_des[1]','v_des[2]','v_des[3]',
-               'q[1]','q[2]','q[3]','q[4]',
-               'q_des[1]','q_des[2]','q_des[3]','q_des[4]',
-               'w[1]','w[2]','w[3]',
-               's[1]','s[2]','s[3]','s[4]',
-               'M[1]','M[2]','M[3]',
-               'T[1]','T[2]','T[3]','T[4]']
+                'x[1]','x[2]','x[3]',
+                'x_des[1]','x_des[2]','x_des[3]',
+                'v[1]','v[2]','v[3]',
+                'v_des[1]','v_des[2]','v_des[3]',
+                'q[1]','q[2]','q[3]','q[4]',
+                'q_des[1]','q_des[2]','q_des[3]','q_des[4]',
+                'w[1]','w[2]','w[3]',
+                's[1]','s[2]','s[3]','s[4]',
+                'M[1]','M[2]','M[3]',
+                'T[1]','T[2]','T[3]','T[4]']
     
     df = pd.DataFrame(data,columns=columns)
     
-    return df
+    init_state = {'x':x[0],'v':v[0],'q':q[0],'w':w[0]}
+    
+    return df, init_state
 
 
 if __name__ == '__main__':
@@ -243,8 +245,8 @@ if __name__ == '__main__':
                                num_blocks=4, robot_radii=0.25, margin=0.2)  # World boundary and obstacles.
     start = world.world['start']  # Start point, shape=(3,)
     goal = world.world['goal']  # Goal point, shape=(3,)
-    df = sandbox(world,start,goal)
-    print(df.head())
+    df, init_state = sandbox(world,start,goal)
+    # print(df.head())
 
 
 

@@ -49,5 +49,5 @@ def random_block(lower_bounds,upper_bounds,block_width, block_height, num_trees,
     
     
 if __name__ == '__main__':
-    random_block((-2,-2,0),(3,2,2),0.5,0.5,4,0.25)
+    world_data = random_block((-2,-2,0),(3,2,2),0.5,0.5,4,0.25)
     
