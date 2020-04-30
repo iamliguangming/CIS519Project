@@ -42,20 +42,29 @@ quadrotor = Quadrotor(quad_params)
 #                                                   my_se3_control,
 #                                                   my_world_traj,
 #                                                   t_final)
+class Args(object):
+    pass
+
+args = Args()
 
 
 action_List = np.zeros((my_path.shape))
 discretized_path = np.zeros((my_path.shape))
 for i in range(discretized_path.shape[0]):
     discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
-for i in range(1,my_path.shape[0]):
+for i in range(discretized_path.shape[0]):
     try:
-        action_List[i,:] = discretized_path[i]-discretized_path[i-1]
+        action_List[i,:] = discretized_path[i+1]-discretized_path[i]
     except:
         action_List[i,:] = np.zeros(3)
+discretized_path = discretized_path.astype(int)
+action_List = action_List.astype(int)
+goal_index = discretized_path[-1]
+args.goal = goal_index
+args.search_range = 3 
 # t_step = 2e-3
 
-def search_direction(position_index,direction,steps,occ_map):
+def search_direction(position_index,direction,steps,occ_map,args):
     """
     This subrountine takes in current position and direction searched within
     a specific map and returns the steps to the closest obstacle in the 
@@ -70,7 +79,8 @@ def search_direction(position_index,direction,steps,occ_map):
             return i
     return 0
         
-def get_extended_state(state, occ_map):
+def get_extended_state(state, occ_map, args):
+    
     """
     Input: state as a vector (p,v)
             p, discretized_Position shape = (3,)
@@ -80,42 +90,36 @@ def get_extended_state(state, occ_map):
             v, discretized directions shape = (3,)
             d, closest neighbor distance, # of blocks, shape(14,)
     """
-    position_index = state[0:3]
-    direction = state[3:6]
-    d = np.array([search_direction(position_index, [1,0,0], 3, occ_map),
-                  search_direction(position_index, [0,1,0], 3, occ_map),
-                  search_direction(position_index, [0,0,1], 3, occ_map),
-                  search_direction(position_index, [1,1,1], 3, occ_map),
-                  search_direction(position_index, [-1,0,0], 3, occ_map),
-                  search_direction(position_index, [0,-1,0], 3, occ_map),
-                  search_direction(position_index, [0,0,-1], 3, occ_map),
-                  search_direction(position_index, [-1,-1,-1], 3, occ_map),
-                  search_direction(position_index, [1,1,-1], 3, occ_map),
-                  search_direction(position_index, [1,-1,1], 3, occ_map),
-                  search_direction(position_index, [1,-1,-1], 3, occ_map),
-                  search_direction(position_index, [-1,1,1], 3, occ_map),
-                  search_direction(position_index, [-1,-1,1], 3, occ_map),
-                  search_direction(position_index, [-1,1,-1], 3, occ_map)])
+    position_index = state
+    d = np.array([search_direction(position_index, [1,0,0], 3, occ_map,args),
+                  search_direction(position_index, [0,1,0], 3, occ_map,args),
+                  search_direction(position_index, [0,0,1], 3, occ_map,args),
+                  search_direction(position_index, [1,1,1], 3, occ_map,args),
+                  search_direction(position_index, [-1,0,0], 3, occ_map,args),
+                  search_direction(position_index, [0,-1,0], 3, occ_map,args),
+                  search_direction(position_index, [0,0,-1], 3, occ_map,args),
+                  search_direction(position_index, [-1,-1,-1], 3, occ_map,args),
+                  search_direction(position_index, [1,1,-1], 3, occ_map,args),
+                  search_direction(position_index, [1,-1,1], 3, occ_map,args),
+                  search_direction(position_index, [1,-1,-1], 3, occ_map,args),
+                  search_direction(position_index, [-1,1,1], 3, occ_map,args),
+                  search_direction(position_index, [-1,-1,1], 3, occ_map,args),
+                  search_direction(position_index, [-1,1,-1], 3, occ_map,args)])
     
     extended_state = np.append(state,d)
+    extended_state = np.append(extended_state,args.goal)
     
     return extended_state
 
-vectorized_extended_state_List = np.zeros((state['x'].shape[0],30))
-for i in range(state['x'].shape[0]):
-    current_state = {'x':state['x'][i],
-                     'v':state['v'][i],
-                     'q':state['q'][i],
-                     'w':state['w'][i],
-                     }
-    extended_state = get_extended_state(current_state, occ_map)
-    vectorized_extended_state = np.concatenate((extended_state['x'],
-                                                extended_state['v'],
-                                                extended_state['theta'],
-                                                extended_state['w'],
-                                                extended_state['d'],
-                                                action_List[i,:]),axis=0)
-    vectorized_extended_state_List[i] = vectorized_extended_state
+# ext = get_extended_state(discretized_path[0], occ_map,args)
+
+extended_state_List = np.zeros((discretized_path.shape[0],20))
+for i in range(discretized_path.shape[0]):
+    current_state = discretized_path[i]
+    extended_state = get_extended_state(current_state, occ_map,args)
+
+
+    extended_state_List[i] = extended_state
     
 # The following section is for Q learning
 
@@ -264,22 +268,22 @@ def Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_ra
 # # Run Q Learning by calling your Qlearning() function
 # Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
 
-class StatesNetwork(nn.Module):
-  '''
-  This NN should take state action pairs and return a Q value
-  '''
-    def __init__(self, env):
-        """
-        Your code here
-        """
+# class StatesNetwork(nn.Module):
+#   '''
+#   This NN should take state action pairs and return a Q value
+#   '''
+#   def __init__(self, env):
+#         """
+#         Your code here
+#         """
     
-    def forward(self, x):    
-        """
-        Your code here
-        @x: torch.Tensor((B,dim_of_observation))
-        @return: torch.Tensor((B,dim_of_actions))
-        """
+#   def forward(self, x):    
+#         """
+#         Your code here
+#         @x: torch.Tensor((B,dim_of_observation))
+#         @return: torch.Tensor((B,dim_of_actions))
+#         """
     
-    return forward_pass
+#     return forward_pass
 
 # def train():
