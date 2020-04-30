@@ -46,10 +46,12 @@ class Args(object):
     pass
 
 args = Args()
+args.occ_map = occ_map
 
 
 action_List = np.zeros((my_path.shape))
 discretized_path = np.zeros((my_path.shape))
+
 for i in range(discretized_path.shape[0]):
     discretized_path[i,:] = occ_map.metric_to_index(my_path[i,:])
 for i in range(discretized_path.shape[0]):
@@ -57,6 +59,7 @@ for i in range(discretized_path.shape[0]):
         action_List[i,:] = discretized_path[i+1]-discretized_path[i]
     except:
         action_List[i,:] = np.zeros(3)
+        
 discretized_path = discretized_path.astype(int)
 action_List = action_List.astype(int)
 goal_index = discretized_path[-1]
@@ -122,7 +125,31 @@ for i in range(discretized_path.shape[0]):
     extended_state_List[i] = extended_state
     
 # The following section is for Q learning
+def step(args, state, action):
+    """
+    Inputs:
+    state: Original state with only position indices :np array (3,)
+    action: Action array (3,)
+    args
+    Output: Updated State (3,)
+            Reward of the action
+            Done: Boolean, True if reaches the goal or hit the wall
+    
+    """
+    done = False 
+    distance_before_action = np.linalg.norm(args.goal - state)
+    state = state + action
+    distance_after_action =  np.linalg.norm(args.goal - state)
+    distance_traveled = np.linalg.norm(action)
+    reward = (distance_before_action - distance_after_action
+              - distance_traveled) / distance_before_action
+    if args.occ_map.is_occupied_index(state) or not args.occ_map.is_valid_index(state):
+        reward = -10
+        done = True
+    elif (state == args.goal).all():
+        done = True
 
+    return state, reward, done
 def discretize(state, discretization, env):
     """
     Need to work on this
