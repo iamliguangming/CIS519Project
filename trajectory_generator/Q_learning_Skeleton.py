@@ -45,11 +45,11 @@ def get_warmup_data(args, state, action):
             label = nparray((27,))
 
     """
-    chosen_action = action
-    extened_state = get_extended_state(state)   ##(20,)
-    extened_state = np.tile(extened_state, (27,1))   ##(27,20)
-    all_action =                                ##(27,3)
-    [[-1, -1, -1],[-1, -1, 0],[-1, -1, 1],
+    chosen_action = action.tolist()
+    extended_state = get_extended_state(args,state)   ##(20,)
+    extended_state = np.tile(extended_state, (27,1))   ##(27,20)
+    all_action =[
+     [-1, -1, -1],[-1, -1, 0],[-1, -1, 1],
      [-1, 0, -1], [-1, 0, 0], [-1, 0, 1],
      [-1, 1, -1], [-1, 1, 0], [-1, 1, 1],
      [0, -1, -1], [0, -1, 0], [0, -1, 1],
@@ -57,23 +57,24 @@ def get_warmup_data(args, state, action):
      [0, 1, -1],  [0, 1, 0],  [0, 1, 1],
      [1, -1, -1], [1, -1, 0], [1, -1, 1],
      [1, 0, -1],  [1, 0, 0],  [1, 0, 1],
-     [1, 1, -1],  [1, 1, 0],  [1, 1, 1]]
-
-    nonchosen_action = all_action.remove(chosen_action)  ##list (26,3)
+     [1, 1, -1],  [1, 1, 0],  [1, 1, 1]]     ##(27,3)
+    nonchosen_action = all_action.copy()
+    nonchosen_action.remove(chosen_action)  ##list (26,3)
     nonchosen_action = np.asarray(nonchosen_action)
     next_state_nonchosen = nonchosen_action + np.tile(state,(26,1)) ##array(26,3)
     Q_list=[]
-    for i in range(next_state_nonchosen):
+    for i in next_state_nonchosen:
         if args.occ_map.is_valid_index(i) and not args.occ_map.is_occupied_index(i):
             Q_list.append(-1)   #non_chosen action in open space
         else:
             Q_list.append(-10)   #non_chosen action with collision
 
-    all_action = np.append(nonchosen_action,chosen_action) ##(27,3)
+    all_action = np.concatenate((np.array(nonchosen_action),
+                                 np.array(chosen_action).reshape(1,3)),axis = 0) ##(27,3)
     Q_list.append(1)    #chosen action
 
-    train_set = np.vstack((extened_state,all_action))  ##(27,20+3)
-    train_labels = np.asarray(Q_list).flatten()
+    train_set = np.hstack((extended_state,all_action))  ##(27,20+3)
+    train_labels = np.asarray(Q_list).reshape(len(Q_list),1)
     return train_set, train_labels
 
 def get_extended_state(args, state):
@@ -184,7 +185,7 @@ def choose_action(args,state,epsilon):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
-    if np.random.random() < 1 - espilon:
+    if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
         chosen_action = action_array[np.random.randint(0, 27)]
@@ -268,12 +269,12 @@ def Qlearning(args):
             action = choose_action(args,state,args.epsilon)
             next_state, reward, done = step(args,state,action)
             # Update terminal
-            terminal = done and np.linalg.norm(state - args.goal_index) <= args.tol:
+            terminal = done and np.linalg.norm(state - args.goal_index) <= args.tol
             # Update Q
             Q = get_target_Q(args,state,next_state,action,reward,terminal)
             # Update tot_reward, state_disc, and success (if applicable)
             state_action_pair = get_pair(args,state,action)
-            args.train_set,arg.train_labels = aggregate_dataset(
+            args.train_set,args.train_labels = aggregate_dataset(
                 args.train_set,args.train_labels,state_action_pair,Q)
             args.dataloader = load_dataset(args.train_set,args.train_labels)
             train(args)
@@ -428,7 +429,7 @@ if __name__ == '__main__':
 
     discretized_path = discretized_path.astype(int)
     action_List = action_List.astype(int)
-    start_index = discretize[0]
+    start_index = discretized_path[0]
     goal_index = discretized_path[-1]
     args.start = start_index
     args.goal = goal_index
@@ -440,7 +441,7 @@ if __name__ == '__main__':
     extended_state_List = np.zeros((discretized_path.shape[0],20))
     for i in range(discretized_path.shape[0]):
         current_state = discretized_path[i]
-        extended_state = get_extended_state(args, current_state, occ_map)
+        extended_state = get_extended_state(args, current_state)
 
 
         extended_state_List[i] = extended_state
