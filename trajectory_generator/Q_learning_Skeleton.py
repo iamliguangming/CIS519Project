@@ -19,6 +19,7 @@ from generator.code.graph_search import graph_search
 from flightsim.simulate import simulate
 from flightsim.simulate import Quadrotor
 from flightsim.world import World
+from flightsim.world import ExpectTimeout 
 
 def search_direction(args, position_index, direction, steps):
     """
@@ -388,9 +389,16 @@ def get_args():
     return args
 
 if __name__ == '__main__':
-    world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
-                           block_width=0.5, block_height=1.5,
-                           num_blocks=4, robot_radii=0.25, margin=0.2)
+    for _ in range(20):
+        try:
+            with ExpectTimeout(3):
+                world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
+                               block_width=0.5, block_height=1.5,
+                               num_blocks=4, robot_radii=0.25, margin=0.2)
+                break
+        except TimeoutError:
+            pass
+    
     resolution=(.1, .1, .1)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
