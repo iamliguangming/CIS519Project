@@ -4,6 +4,11 @@ import math
 
 from flightsim.shapes import Cuboid
 from flightsim.numpy_encoding import NumpyJSONEncoder, to_ndarray
+from timeout import timeout
+import time
+import sys
+import traceback
+
 
 def interp_path(path, res):
     cumdist = np.cumsum(np.linalg.norm(np.diff(path, axis=0),axis=1))
@@ -256,6 +261,7 @@ class World(object):
         world_data = {'bounds': bounds, 'blocks': blocks}
         return cls(world_data)
 
+
     @classmethod
     def random_block(cls, lower_bounds,upper_bounds,block_width, block_height, num_blocks,robot_radii,margin):
         """
@@ -380,7 +386,58 @@ class World(object):
         world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
         return cls(world_data)
 
+class ExpectTimeout(object):
+    def __init__(self, seconds, print_traceback=True, mute=False):
+        self.seconds_before_timeout = seconds
+        self.original_trace_function = None
+        self.end_time = None
+        self.print_traceback = print_traceback
+        self.mute = mute
 
+    # Tracing function
+    def check_time(self, frame, event, arg):
+        if self.original_trace_function is not None:
+            self.original_trace_function(frame, event, arg)
+
+        current_time = time.time()
+        if current_time >= self.end_time:
+            raise TimeoutError
+
+        return self.check_time
+
+    # Begin of `with` block
+    def __enter__(self):
+        start_time = time.time()
+        self.end_time = start_time + self.seconds_before_timeout
+
+        self.original_trace_function = sys.gettrace()
+        sys.settrace(self.check_time)
+        return self
+
+    # End of `with` block
+    def __exit__(self, exc_type, exc_value, tb):
+        self.cancel()
+
+        if exc_type is None:
+            return
+
+        # An exception occurred
+        if self.print_traceback:
+            lines = ''.join(
+                traceback.format_exception(
+                    exc_type,
+                    exc_value,
+                    tb)).strip()
+        else:
+            lines = traceback.format_exception_only(
+                exc_type, exc_value)[-1].strip()
+
+#        if not self.mute:
+#            print(lines, "(expected)", file=sys.stderr)
+#        return True  # Ignore it
+
+    def cancel(self):
+        sys.settrace(self.original_trace_function)
 
 if __name__ == '__main__':
     import argparse
