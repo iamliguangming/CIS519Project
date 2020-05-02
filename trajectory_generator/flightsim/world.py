@@ -4,7 +4,7 @@ import math
 
 from flightsim.shapes import Cuboid
 from flightsim.numpy_encoding import NumpyJSONEncoder, to_ndarray
-from timeout import timeout
+# from timeout import timeout
 import time
 import sys
 import traceback

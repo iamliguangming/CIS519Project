@@ -21,6 +21,7 @@ from flightsim.simulate import Quadrotor
 from flightsim.world import World
 from tqdm import tqdm
 from flightsim.world import ExpectTimeout
+import pdb
 
 def search_direction(args, position_index, direction, steps):
     """
@@ -49,7 +50,7 @@ def get_warmup_data(args, state, action):
     """
     chosen_action = action.tolist()
     extended_state = get_extended_state(args,state)   ##(20,)
-    extended_state = np.tile(extended_state, (27,1))   ##(27,20)
+    extended_state = np.tile(extended_state, (53,1))   ##(27,20)
     all_action =[
      [-1, -1, -1],[-1, -1, 0],[-1, -1, 1],
      [-1, 0, -1], [-1, 0, 0], [-1, 0, 1],
@@ -69,12 +70,15 @@ def get_warmup_data(args, state, action):
         if args.occ_map.is_valid_index(i) and not args.occ_map.is_occupied_index(i):
             Q_list.append(-1)   #non_chosen action in open space
         else:
-            Q_list.append(-10)   #non_chosen action with collision
+            Q_list.append(-100)   #non_chosen action with collision
 
     all_action = np.concatenate((np.array(nonchosen_action),
                                  np.array(chosen_action).reshape(1,3)),axis = 0) ##(27,3)
-    Q_list.append(1)    #chosen action
-
+    Q_list.append((1))   #chosen action
+    for i in range(26):
+        all_action = np.concatenate((np.array(all_action),
+                                     np.array(chosen_action).reshape(1,3)),axis = 0)
+        Q_list.append((1))
     train_set = np.hstack((extended_state,all_action))  ##(27,20+3)
     train_labels = np.asarray(Q_list).reshape(len(Q_list),1)
     return train_set, train_labels
@@ -141,12 +145,12 @@ def step(args, state, action):
     distance_after_action =  np.linalg.norm(args.goal - state)
     distance_traveled = np.linalg.norm(action)
     reward = (distance_before_action - distance_after_action
-              - distance_traveled) / distance_before_action
-    if args.occ_map.is_occupied_index(state) or not args.occ_map.is_valid_index(state):
-        reward = -10
+              ) / distance_before_action - 1
+    if not args.occ_map.is_valid_index(state) or args.occ_map.is_occupied_index(state):
+        reward = -1
         done = True
     elif (state == args.goal).all():
-        reward = 10
+        reward = 100
         done = True
 
     return state, reward, done
@@ -200,11 +204,17 @@ def choose_action(args,state,epsilon):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
+    print(Q_array)
+    print('\n')
+    print(action_array[np.argmax(Q_array)])
+    print(np.max(Q_array))
     if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
         chosen_action = action_array[np.random.randint(0, 27)]
+        print('I am searching\n')
 
+    # print (chosen_action)
     return chosen_action, np.max(Q_array)
 
 
@@ -225,7 +235,7 @@ def update_epsilon(epsilon, decay_rate):
     return epsilon
 
 
-def get_target_Q(args, state, next_state, action, reward, terminal):
+def get_target_Q(args, state, next_state, action, reward, terminal,done):
     """
 
     Update Q values following the Q-learning update rule.
@@ -247,18 +257,26 @@ def get_target_Q(args, state, next_state, action, reward, terminal):
     _, next_Q = choose_action(args,next_state,0)
 
     if terminal:
-        Q = reward
+        Q = np.array([[reward]])
 
     # Adjust Q value for current state
+    elif done:
+        Q = np.array([[-100]])
     else:
-        delta = args.lr*(reward + args.discount*next_Q - Q)
-        Q += delta
+        try:
+            delta = args.Qlr*(reward + args.discount*next_Q - Q)
+            Q += delta
+            Q = Q.detach().numpy()
+        except:
+            pdb.set_trace()
+
+
 
     return Q
 
 def aggregate_dataset(extended_state_list, Q_array, new_extended_state, new_Q):
     training_states = np.concatenate((extended_state_list,new_extended_state.reshape(1,-1)),axis=0)
-    training_Q = np.concatenate((Q_array,new_Q.detach().numpy()),axis = 0)
+    training_Q = np.concatenate((Q_array,new_Q),axis = 0)
 
     return training_states, training_Q
 
@@ -272,29 +290,43 @@ def Qlearning(args):
     success_list = []
     success = 0 # count of number of successes reached
 
+    first_Time = True
+
     for i in tqdm(range(args.max_episodes), position = 0):
         # Initialize parameters
         done = False # indicates whether the episode is done
         terminal = False # indicates whether the episode is done AND the car has reached the flag (>=0.5 position)
         tot_reward = 0 # sum of total reward over a single
         state = args.start
+        num_steps = 0
+        first_Time = True
+        args.train_set = np.zeros((1,23))
+        args.train_labels = np.zeros((1,1))
 
-        while done != True:
+        while done != True and num_steps <= args.max_steps:
             # Determine next action
             action,_ = choose_action(args,state,args.epsilon)
             next_state, reward, done = step(args,state,action)
             # Update terminal
-            terminal = done and np.linalg.norm(state - args.goal) <= args.tol
+            terminal = (done and (np.linalg.norm(state - args.goal) <= args.tol))
             # Update Q
-            Q = get_target_Q(args,state,next_state,action,reward,terminal)
+            Q = get_target_Q(args,state,next_state,action,reward,terminal,done)
             # Update tot_reward, state_disc, and success (if applicable)
             state_action_pair = get_pair(args,state,action)
-            args.train_set,args.train_labels = aggregate_dataset(
-                args.train_set,args.train_labels,state_action_pair,Q)
+            if first_Time:
+                args.train_set = state_action_pair.reshape(1,-1)
+                args.train_labels = Q
+                first_Time = False
+            else:
+                args.train_set,args.train_labels = aggregate_dataset(
+                    args.train_set,args.train_labels,state_action_pair,Q)
 
             tot_reward += reward
+            print('\n')
+            print(f'State : {state}, Q : {Q}')
             state = next_state
-            if terminal: success +=1
+            if terminal: success += 1
+            num_steps += 1
 
 
         args.dataloader = load_dataset(args.train_set,args.train_labels)
@@ -306,9 +338,9 @@ def Qlearning(args):
         position_list.append(next_state.tolist())
         success_list.append(success/(i+1))
 
-        if (i+1) % 100 == 0:
-            print('Episode: ', i+1, 'Average Reward over 100 Episodes: ',np.mean(reward_list))
-            reward_list = []
+        # if (i+1) % 100 == 0:
+        #     print('Episode: ', i+1, 'Average Reward over 100 Episodes: ',np.mean(reward_list))
+        #     reward_list = []
 
     return reward_list, position_list, success_list
 
@@ -365,10 +397,12 @@ def train(args):
     criterion = args.criterion
     dataloader = args.dataloader
 
-    running_loss = 0.0
-    running_corrects = 0
+    # running_loss = 0.0
+    # running_corrects = 0
     model.train()
     for e in range(args.num_epochs):
+        running_loss = 0
+        running_corrects = 0
         for inputs, labels in (dataloader):
             labels = labels
             optimizer.zero_grad()
@@ -379,12 +413,10 @@ def train(args):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()* inputs.size(0)
-            running_corrects += torch.sum(preds == labels.data)
-        # print(f'epoch {e}')
-
-        # epoch_loss = running_loss / dataset_size
-        # epoch_acc = running_corrects.double() / dataset_size
-        # print('Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_acc))
+            running_corrects += torch.sum(abs(preds-labels.data)<args.tol)
+        # epoch_loss = running_loss / len(args.train_set)
+        # epoch_acc = running_corrects.double() / len(args.train_set)
+        # print('Epoch: {} Loss: {:.4f} Acc: {:.4f}'.format(e, epoch_loss, epoch_acc))
 
     return model
 
@@ -394,19 +426,20 @@ def get_args():
     args = Args()
     args.occ_map = occ_map
     args.model = QNetwork()
-    args.lr = 0.2
+    args.Qlr = 0.05
+    args.lr = 0.001
     args.discount = 0.9
     args.epsilon = 0.8
-    args.decay_rate = 0.95
-    args.max_episodes = 100
+    args.decay_rate = 0.97
+    args.max_episodes = 1000
     args.tol = 1e-4
+    args.max_steps = 500
 
     args.train_set = None
     args.train_labels = None
     args.dataloader = None
-    # args.dataset_size=0
     args.batch_size = 120
-    args.num_epochs = 20
+    args.num_epochs = 100
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
     return args
@@ -422,27 +455,15 @@ if __name__ == '__main__':
         except TimeoutError:
             pass
 
-    resolution=(.1, .1, .1)
+    resolution=(.25, .25, .25)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
-    # my_se3_control = SE3Control(quad_params)
     start = world.world['start']  # Start point, shape=(3,)
     goal = world.world['goal']  # Goal point, shape=(3,)
-    # my_world_traj = WorldTraj(world, start, goal)
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
-    # t_final = 60
     quadrotor = Quadrotor(quad_params)
-    # initial_state = {'x': start,
-    #                     'v': (0, 0, 0),
-    #                     'q': (0, 0, 0, 1), # [i,j,k,w]
-    #                     'w': (0, 0, 0)}
-    # (sim_time, state, control, flat, exit) = simulate(initial_state,
-    #                                                   quadrotor,
-    #                                                   my_se3_control,
-    #                                                   my_world_traj,
-    #                                                   t_final)
     args = get_args()
 
 
@@ -465,17 +486,6 @@ if __name__ == '__main__':
     args.start = start_index
     args.goal = goal_index
     args.search_range = 20
-    # t_step = 2e-3
-
-    # ext = get_extended_state(discretized_path[0], occ_map,args)
-
-    # extended_state_List = np.zeros((discretized_path.shape[0],20))
-    # for i in range(discretized_path.shape[0]):
-    #     current_state = discretized_path[i]
-    #     extended_state = get_extended_state(args, current_state)
-
-
-    #     extended_state_List[i] = extended_state
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
@@ -488,19 +498,11 @@ if __name__ == '__main__':
 
     all_pairs, action_array = get_all_pairs(args, state)
 
-    print(args.model.forward(torch.tensor(all_pairs[0].reshape(1,-1)).float()))
+
+
+    # print(args.model.predict(torch.tensor(all_pairs)))
 
     reward_list, position_list, success_list = Qlearning(args)
     print(reward_list)
     print(position_list)
     print(success_list)
-    # num_states = (env.observation_space.high - env.observation_space.low)*discretization
-    # #Size of discretized state space
-    # num_states = np.round(num_states, 0).astype(int) + 1
-    # # Initialize Q table
-    # Q = np.random.uniform(low = -1,
-    #                       high = 1,
-    #                       size = (num_states[0], num_states[1], env.action_space.n))
-
-    # # Run Q Learning by calling your Qlearning() function
-    # Q, position, successes, frames = Qlearning(Q, discretization, env, learning_rate, discount, epsilon, decay_rate, max_episodes)
