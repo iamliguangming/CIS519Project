@@ -70,7 +70,7 @@ def get_warmup_data(args, state, action):
         if args.occ_map.is_valid_index(i) and not args.occ_map.is_occupied_index(i):
             Q_list.append(-1)   #non_chosen action in open space
         else:
-            Q_list.append(-100)   #non_chosen action with collision
+            Q_list.append(-10)   #non_chosen action with collision
 
     all_action = np.concatenate((np.array(nonchosen_action),
                                  np.array(chosen_action).reshape(1,3)),axis = 0) ##(27,3)
@@ -147,10 +147,10 @@ def step(args, state, action):
     reward = (distance_before_action - distance_after_action
               ) / distance_before_action - 1
     if not args.occ_map.is_valid_index(state) or args.occ_map.is_occupied_index(state):
-        reward = -1
+        reward = -100
         done = True
     elif (state == args.goal).all():
-        reward = 100
+        reward = 10
         done = True
 
     return state, reward, done
@@ -204,10 +204,10 @@ def choose_action(args,state,epsilon):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
-    print(Q_array)
-    print('\n')
-    print(action_array[np.argmax(Q_array)])
-    print(np.max(Q_array))
+    # print(Q_array)
+    # print('\n')
+    # print(action_array[np.argmax(Q_array)])
+    # print(np.max(Q_array))
     if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
@@ -255,16 +255,23 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
     """
     Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
     _, next_Q = choose_action(args,next_state,0)
+    if not args.occ_map.is_valid_index(
+            next_state) or args.occ_map.is_occupied_index(next_state):
+        next_Q = torch.tensor([[-1000]])
 
     if terminal:
         Q = np.array([[reward]])
 
     # Adjust Q value for current state
-    elif done:
-        Q = np.array([[-100]])
+    # elif done:
+    #     Q = np.array([[-100]])
     else:
         try:
             delta = args.Qlr*(reward + args.discount*next_Q - Q)
+            print(f'\n State: {state},Next state: {next_state}')
+            print(f'Reward: {reward}, next_Q: {next_Q}, Q:{Q}')
+            print(f'Delta:{delta}')
+
             Q += delta
             Q = Q.detach().numpy()
         except:
@@ -313,24 +320,27 @@ def Qlearning(args):
             Q = get_target_Q(args,state,next_state,action,reward,terminal,done)
             # Update tot_reward, state_disc, and success (if applicable)
             state_action_pair = get_pair(args,state,action)
-            if first_Time:
-                args.train_set = state_action_pair.reshape(1,-1)
-                args.train_labels = Q
-                first_Time = False
-            else:
-                args.train_set,args.train_labels = aggregate_dataset(
-                    args.train_set,args.train_labels,state_action_pair,Q)
+            args.dataloader = load_dataset(state_action_pair.reshape(1,-1),
+                                           Q, batch_size = 1)
+            train(args)
+            # if first_Time:
+            #     args.train_set = state_action_pair.reshape(1,-1)
+            #     args.train_labels = Q
+            #     first_Time = False
+            # else:
+            #     args.train_set,args.train_labels = aggregate_dataset(
+            #         args.train_set,args.train_labels,state_action_pair,Q)
 
             tot_reward += reward
-            print('\n')
-            print(f'State : {state}, Q : {Q}')
+            # print('\n')
+            # print(f'State : {state}, Q : {Q}')
             state = next_state
             if terminal: success += 1
             num_steps += 1
 
 
-        args.dataloader = load_dataset(args.train_set,args.train_labels)
-        train(args)
+        # args.dataloader = load_dataset(args.train_set,args.train_labels)
+        # train(args)
         args.epsilon = update_epsilon(args.epsilon, args.decay_rate) #Update level of epsilon using update_epsilon()
 
         # Track rewards
@@ -353,6 +363,8 @@ class QNetwork(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(23, 50),
             nn.ReLU(True),
+            # nn.Linear(50,128),
+            # nn.ReLU(True),
             nn.Linear(50, 1)
         )
 
@@ -366,7 +378,7 @@ class QNetwork(nn.Module):
 
         return self.forward(x.reshape(-1,23).float())
 
-def load_dataset(x, y, batch_size=64):
+def load_dataset(x, y, batch_size=5):
     """
     load data for neural network
 
@@ -426,7 +438,7 @@ def get_args():
     args = Args()
     args.occ_map = occ_map
     args.model = QNetwork()
-    args.Qlr = 0.05
+    args.Qlr = 0.3
     args.lr = 0.001
     args.discount = 0.9
     args.epsilon = 0.8
@@ -489,20 +501,21 @@ if __name__ == '__main__':
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
-    args.dataloader = load_dataset(warm_up_set,warm_up_labels)
+    args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=1)
     args.train_set = warm_up_set
     args.train_labels = warm_up_labels
     args.model = train(args)
 
     state = discretized_path[0]
+    args.num_epochs = 200
 
     all_pairs, action_array = get_all_pairs(args, state)
 
 
 
-    # print(args.model.predict(torch.tensor(all_pairs)))
+    print(args.model.predict(torch.tensor(all_pairs)))
 
-    reward_list, position_list, success_list = Qlearning(args)
-    print(reward_list)
-    print(position_list)
-    print(success_list)
+    # reward_list, position_list, success_list = Qlearning(args)
+    # print(reward_list)
+    # print(position_list)
+    # print(success_list)
