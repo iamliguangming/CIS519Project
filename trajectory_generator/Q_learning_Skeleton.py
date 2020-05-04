@@ -264,10 +264,10 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
         next_Q = torch.tensor([[-100]])
 
     if terminal:
-        print('Reach goal!')
-        print(f'Q before update:{Q}')
+        print('\nReach goal!')
+        print(f'Q before update:{Q.detach().numpy().item()}')
         Q = np.array([[reward]])*100
-        print(f'Q after update:{Q}')
+        print(f'Q after update:{Q.item()}')
 
     # Adjust Q value for current state
     # elif done:
@@ -333,8 +333,12 @@ def Qlearning(args):
         # args.train_labels = np.zeros((1,1))
         print(f'\n Searching Likelihood: {args.epsilon}')
 
+        path_length = 0
+        path_list = []
+
         while done != True and num_steps <= args.max_steps:
             # Determine next action
+            path_list.append((args.occ_map.index_to_metric_center(state)).tolist())
             action,_ = choose_action(args,state,args.epsilon)
             next_state, reward, done = step(args,state,action)
             # Update terminal
@@ -357,9 +361,15 @@ def Qlearning(args):
             tot_reward += reward
             # print('\n')
             # print(f'State : {state}, Q : {Q}')
+            path_length += np.linalg.norm(next_state - state)
             state = next_state
             if terminal: success += 1
             num_steps += 1
+
+        if terminal and path_length < args.best_path_length:
+            args.best_path_length = path_length
+            args.final_path = path_list
+
         args.dataloader = load_dataset(args.train_set,
                                            args.train_labels, batch_size = 20)
         train(args)
@@ -451,6 +461,8 @@ def train(args):
 
     model.train()
     for e in range(args.num_epochs):
+        if train_flag is False:
+            break
         running_loss = 0
         running_corrects = 0
         for inputs, labels in (dataloader):
@@ -467,6 +479,8 @@ def train(args):
 
         epoch_loss = running_loss / len(args.train_set)
         epoch_acc = running_corrects.double() / len(args.train_set)
+
+        args.loss_list.append(epoch_loss)
 
         if args.log_permit is True:
             print('Epoch: {} Loss: {:.4f} Acc: {:.4f}'.format(e, epoch_loss, epoch_acc))
@@ -492,20 +506,24 @@ def get_args():
     args.discount = 0.9
     args.epsilon = 0.8
     args.decay_rate = 0.95
-    args.max_episodes = 100
+    args.max_episodes = 200
     args.tol = 1e-4
     args.max_steps = 500
-
+    args.final_path  = []
     args.train_set = None
     args.train_labels = None
     args.dataloader = None
     args.batch_size = 120
     args.num_epochs = 2000
+    args.best_path_length = 1E8
+    args.optimal_path_length = 0
     # args.optimizer = torch.optim.AdamW(args.model.parameters(),lr = args.lr)
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
 
     args.log_permit = True
+
+    args.loss_list = []
     return args
 
 def get_samples_from_new_map():
@@ -518,7 +536,7 @@ def get_samples_from_new_map():
                 break
         except TimeoutError:
             pass
-
+  
     resolution=(.25, .25, .25)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
@@ -528,7 +546,11 @@ def get_samples_from_new_map():
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
+  
     args = get_args()
+    args.go = goal
+    args.st = start
+    args.world = world
     args.occ_map = occ_map
     action_List = np.zeros((my_path.shape))
     discretized_path = np.zeros((my_path.shape))
@@ -543,26 +565,17 @@ def get_samples_from_new_map():
 
     discretized_path = discretized_path.astype(int)
     action_List = action_List.astype(int)
+    for i in range(len(action_List)):
+        args.optimal_path_length += np.linalg.norm(action_List[i])
     start_index = discretized_path[0]
     goal_index = discretized_path[-1]
     args.start = start_index
     args.goal = goal_index
     args.search_range = 20
-    fig = plt.figure()
-    ax = Axes3Ds(fig)
 
-    ax.plot([start[0]], [start[1]], [start[2]], 'go', markersize=16, markeredgewidth=3, markerfacecolor='none')
-    ax.plot([goal[0]],  [goal[1]],  [goal[2]], 'ro', markersize=16, markeredgewidth=3, markerfacecolor='none')
-    world.draw(ax)
-    occ_map.draw(ax)
-
-    plt.show()
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
-
-
-
 
     return args, warm_up_set, warm_up_labels
 
@@ -574,12 +587,7 @@ if __name__ == '__main__':
     # args.model = train(args)
     # Qlearning(args)
 
-
     # save_model(args.model)
-
-
-
-
     # state = discretized_path[0]
     # args.num_epochs = 1000
 
@@ -592,7 +600,41 @@ if __name__ == '__main__':
 
     # print(args.model.predict(torch.tensor(all_pairs)))
 
-    # reward_list, position_list, success_list = Qlearning(args)
+    reward_list, position_list, success_list = Qlearning(args)
     # print(reward_list)
     # print(position_list)
     # print(success_list)
+    fig = plt.figure()
+    ax = Axes3Ds(fig)
+
+    ax.plot([args.st[0]], [args.st[1]], [args.st[2]], 'go', markersize=16,
+        markeredgewidth=3, markerfacecolor='none')
+    ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'ro', markersize=16,
+        markeredgewidth=3, markerfacecolor='none')
+    # args.world.draw_line(ax, args.final_path, color='red', linewidth=1)
+    args.world.draw_points(ax, args.final_path, color='purple', markersize=8)
+    args.world.draw(ax)
+    args.occ_map.draw(ax)
+
+    plt.show()
+
+    # plt.plot(args.final_path)
+    # plt.xlabel('Step')
+    # plt.ylabel('Final Path')
+    # plt.title('Final Path')
+    # plt.show()
+    # plt.close()
+
+    plt.plot(success_list)
+    plt.xlabel('Episode')
+    plt.ylabel('Success Rate')
+    plt.title('Success Rate')
+    plt.show()
+    plt.close()
+
+    plt.plot(args.loss_list)
+    plt.xlabel('Iteration')
+    plt.ylabel('Training Loss')
+    plt.title('Training Loss')
+    plt.show()
+    plt.close()
