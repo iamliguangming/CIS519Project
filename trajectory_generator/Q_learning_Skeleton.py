@@ -275,12 +275,12 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
 
         print(f'\nState: {state}, Next state: {next_state}')
         print(f'Reward: {reward}, next_Q: {next_Q}')
-        print(f'Delta:{delta}')
-        print(f'Q before update:{Q}')
+        print(f'Delta:{delta.detach().numpy().item()}')
+        print(f'Q before update:{Q.detach().numpy().item()}')
 
         Q += delta
         Q = Q.detach().numpy()
-        print(f'Q after update:{Q}')
+        print(f'Q after update:{Q.item()}')
 
     return Q
 
@@ -329,6 +329,7 @@ def Qlearning(args):
         # first_Time = True
         # args.train_set = np.zeros((1,23))
         # args.train_labels = np.zeros((1,1))
+        print(f'\n Searching Likelihood: {args.epsilon}')
 
         while done != True and num_steps <= args.max_steps:
             # Determine next action
@@ -383,11 +384,11 @@ class QNetwork(nn.Module):
     def __init__(self):
         super(QNetwork,self).__init__()
         self.fc = nn.Sequential(
-            nn.Linear(23, 23),
+            nn.Linear(23, 50),
             nn.ReLU(True),
-            # nn.Linear(50,128),
-            # nn.ReLU(True),
-            nn.Linear(23, 1)
+            nn.Linear(50,50),
+            nn.ReLU(True),
+            nn.Linear(50, 1)
         )
 
     def forward(self, x):
@@ -489,7 +490,7 @@ def get_args():
     args.discount = 0.9
     args.epsilon = 0.8
     args.decay_rate = 0.95
-    args.max_episodes = 1000
+    args.max_episodes = 100
     args.tol = 1e-4
     args.max_steps = 500
 
