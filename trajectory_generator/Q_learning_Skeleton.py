@@ -9,6 +9,8 @@ Created on Fri Apr 24 13:45:59 2020
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import save, load
+from os import path
 from torch.utils.data import DataLoader
 from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
@@ -294,8 +296,9 @@ def add_replace_element(args,train_set,train_labels,new_pair,new_Q):
         if (train_set[i] == new_pair).all():
             train_labels[i] = new_Q
             inFlag = True
+            break
     if not inFlag:
-        train_set,train_labels = aggregate_dataset(
+        args.train_set,args.train_labels = aggregate_dataset(
              train_set,train_labels,new_pair,new_Q)
 
 
@@ -412,6 +415,13 @@ def load_dataset(x, y, batch_size=5):
 
     return dataloader
 
+def save_model(model):
+    return save(model.state_dict(), 'QNet.th')
+
+def load_model():
+    q = QNetwork()
+    q.load_state_dict(load('QNet.th', map_location='cpu'))
+    return q
 
 def train(args):
     '''
@@ -472,14 +482,14 @@ def get_args():
     class Args(object):
         pass
     args = Args()
-    args.occ_map = occ_map
+
     args.model = QNetwork()
     args.Qlr = 0.3
     args.lr = 0.001
     args.discount = 0.9
     args.epsilon = 0.8
     args.decay_rate = 0.95
-    args.max_episodes = 100
+    args.max_episodes = 1000
     args.tol = 1e-4
     args.max_steps = 500
 
@@ -495,7 +505,7 @@ def get_args():
     args.log_permit = True
     return args
 
-if __name__ == '__main__':
+def get_samples_from_new_map():
     for _ in range(20):
         try:
             with ExpectTimeout(3):
@@ -514,11 +524,8 @@ if __name__ == '__main__':
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
-    quadrotor = Quadrotor(quad_params)
     args = get_args()
-
-
-
+    args.occ_map = occ_map
     action_List = np.zeros((my_path.shape))
     discretized_path = np.zeros((my_path.shape))
 
@@ -540,24 +547,44 @@ if __name__ == '__main__':
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
-    args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
-    args.train_set = warm_up_set
-    args.train_labels = warm_up_labels
-    args.model = train(args)
 
-    state = discretized_path[0]
+
+
+
+    return args, warm_up_set, warm_up_labels
+
+if __name__ == '__main__':
+    args, warm_up_set, warm_up_labels = get_samples_from_new_map()
+    args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
+    args.train_set = np.zeros((1,23))
+    args.train_labels = np.array([[0]])
+    # args.model = train(args)
+    Qlearning(args)
+    # args2, warm_up_set2, warm_up_labels2 = get_samples_from_new_map()
+    # args2.dataloader = load_dataset(warm_up_set2,warm_up_labels2,batch_size=20)
+    # args2.train_set = warm_up_set2
+    # args2.train_labels = warm_up_labels2
+    # args2.model = args.model
+    # Qlearning(args2)
+
+    save_model(args.model)
+
+
+
+
+    # state = discretized_path[0]
     args.num_epochs = 1000
 
-    all_pairs, action_array = get_all_pairs(args, state)
+    # all_pairs, action_array = get_all_pairs(args, state)
 
 
-    maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
-    chosen_action = action_array[maxQ]
-    real_action = action_List[0]
+    # maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
+    # chosen_action = action_array[maxQ]
+    # real_action = action_List[0]
 
-    print(args.model.predict(torch.tensor(all_pairs)))
+    # print(args.model.predict(torch.tensor(all_pairs)))
 
-    reward_list, position_list, success_list = Qlearning(args)
-    print(reward_list)
-    print(position_list)
-    print(success_list)
+    # reward_list, position_list, success_list = Qlearning(args)
+    # print(reward_list)
+    # print(position_list)
+    # print(success_list)
