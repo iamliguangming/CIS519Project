@@ -9,6 +9,8 @@ Created on Fri Apr 24 13:45:59 2020
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import save, load
+from os import path
 from torch.utils.data import DataLoader
 from scipy.spatial.transform import Rotation
 from flightsim.crazyflie_params import quad_params
@@ -68,17 +70,17 @@ def get_warmup_data(args, state, action):
     Q_list=[]
     for i in next_state_nonchosen:
         if args.occ_map.is_valid_index(i) and not args.occ_map.is_occupied_index(i):
-            Q_list.append(-1)   #non_chosen action in open space
+            Q_list.append(0)   #non_chosen action in open space
         else:
             Q_list.append(-100)   #non_chosen action with collision
 
     all_action = np.concatenate((np.array(nonchosen_action),
                                  np.array(chosen_action).reshape(1,3)),axis = 0) ##(27,3)
-    Q_list.append((1))   #chosen action
+    Q_list.append((10))   #chosen action
     for i in range(26):
         all_action = np.concatenate((np.array(all_action),
                                      np.array(chosen_action).reshape(1,3)),axis = 0)
-        Q_list.append((1))
+        Q_list.append((100))
     train_set = np.hstack((extended_state,all_action))  ##(27,20+3)
     train_labels = np.asarray(Q_list).reshape(len(Q_list),1)
     return train_set, train_labels
@@ -145,12 +147,12 @@ def step(args, state, action):
     distance_after_action =  np.linalg.norm(args.goal - state)
     distance_traveled = np.linalg.norm(action)
     reward = (distance_before_action - distance_after_action
-              ) / distance_before_action - 1
+              ) / distance_before_action
     if not args.occ_map.is_valid_index(state) or args.occ_map.is_occupied_index(state):
         reward = -1
         done = True
     elif (state == args.goal).all():
-        reward = 100
+        reward = 1
         done = True
 
     return state, reward, done
@@ -204,10 +206,10 @@ def choose_action(args,state,epsilon):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
-    print(Q_array)
-    print('\n')
-    print(action_array[np.argmax(Q_array)])
-    print(np.max(Q_array))
+    # print(Q_array)
+    # print('\n')
+    # print(action_array[np.argmax(Q_array)])
+    # print(np.max(Q_array))
     if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
@@ -255,22 +257,30 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
     """
     Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
     _, next_Q = choose_action(args,next_state,0)
+    if not args.occ_map.is_valid_index(
+            next_state) or args.occ_map.is_occupied_index(next_state):
+        next_Q = torch.tensor([[-100]])
 
     if terminal:
-        Q = np.array([[reward]])
+        print('Reach goal!')
+        print(f'Q before update:{Q}')
+        Q = np.array([[reward]])*100
+        print(f'Q after update:{Q}')
 
     # Adjust Q value for current state
-    elif done:
-        Q = np.array([[-100]])
+    # elif done:
+    #     Q = np.array([[-100]])
     else:
-        try:
-            delta = args.Qlr*(reward + args.discount*next_Q - Q)
-            Q += delta
-            Q = Q.detach().numpy()
-        except:
-            pdb.set_trace()
+        delta = args.Qlr*(100*reward + args.discount*next_Q - Q)
 
+        print(f'\nState: {state}, Next state: {next_state}')
+        print(f'Reward: {reward}, next_Q: {next_Q}')
+        print(f'Delta:{delta.detach().numpy().item()}')
+        print(f'Q before update:{Q.detach().numpy().item()}')
 
+        Q += delta
+        Q = Q.detach().numpy()
+        print(f'Q after update:{Q.item()}')
 
     return Q
 
@@ -279,6 +289,21 @@ def aggregate_dataset(extended_state_list, Q_array, new_extended_state, new_Q):
     training_Q = np.concatenate((Q_array,new_Q),axis = 0)
 
     return training_states, training_Q
+
+def add_replace_element(args,train_set,train_labels,new_pair,new_Q):
+    inFlag = False
+    for i in range(train_set.shape[0]):
+        if (train_set[i] == new_pair).all():
+            train_labels[i] = new_Q
+            inFlag = True
+            break
+    if not inFlag:
+        args.train_set,args.train_labels = aggregate_dataset(
+             train_set,train_labels,new_pair,new_Q)
+
+
+    return None
+
 
 def Qlearning(args):
     """
@@ -292,6 +317,8 @@ def Qlearning(args):
 
     first_Time = True
 
+    args.log_permit = False
+
     for i in tqdm(range(args.max_episodes), position = 0):
         # Initialize parameters
         done = False # indicates whether the episode is done
@@ -299,38 +326,44 @@ def Qlearning(args):
         tot_reward = 0 # sum of total reward over a single
         state = args.start
         num_steps = 0
-        first_Time = True
-        args.train_set = np.zeros((1,23))
-        args.train_labels = np.zeros((1,1))
+        # first_Time = True
+        # args.train_set = np.zeros((1,23))
+        # args.train_labels = np.zeros((1,1))
+        print(f'\n Searching Likelihood: {args.epsilon}')
 
         while done != True and num_steps <= args.max_steps:
             # Determine next action
             action,_ = choose_action(args,state,args.epsilon)
             next_state, reward, done = step(args,state,action)
             # Update terminal
-            terminal = (done and (np.linalg.norm(state - args.goal) <= args.tol))
+            terminal = (done and (np.linalg.norm(next_state - args.goal) <= args.tol))
             # Update Q
             Q = get_target_Q(args,state,next_state,action,reward,terminal,done)
             # Update tot_reward, state_disc, and success (if applicable)
             state_action_pair = get_pair(args,state,action)
-            if first_Time:
-                args.train_set = state_action_pair.reshape(1,-1)
-                args.train_labels = Q
-                first_Time = False
-            else:
-                args.train_set,args.train_labels = aggregate_dataset(
-                    args.train_set,args.train_labels,state_action_pair,Q)
+            add_replace_element(args, args.train_set, args.train_labels
+                                , state_action_pair, Q)
+
+            # if first_Time:
+            #     args.train_set = state_action_pair.reshape(1,-1)
+            #     args.train_labels = Q
+            #     first_Time = False
+            # else:
+            #     args.train_set,args.train_labels = aggregate_dataset(
+            #         args.train_set,args.train_labels,state_action_pair,Q)
 
             tot_reward += reward
-            print('\n')
-            print(f'State : {state}, Q : {Q}')
+            # print('\n')
+            # print(f'State : {state}, Q : {Q}')
             state = next_state
             if terminal: success += 1
             num_steps += 1
-
-
-        args.dataloader = load_dataset(args.train_set,args.train_labels)
+        args.dataloader = load_dataset(args.train_set,
+                                           args.train_labels, batch_size = 20)
         train(args)
+
+        # args.dataloader = load_dataset(args.train_set,args.train_labels)
+        # train(args)
         args.epsilon = update_epsilon(args.epsilon, args.decay_rate) #Update level of epsilon using update_epsilon()
 
         # Track rewards
@@ -353,6 +386,8 @@ class QNetwork(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(23, 50),
             nn.ReLU(True),
+            nn.Linear(50,50),
+            nn.ReLU(True),
             nn.Linear(50, 1)
         )
 
@@ -366,7 +401,7 @@ class QNetwork(nn.Module):
 
         return self.forward(x.reshape(-1,23).float())
 
-def load_dataset(x, y, batch_size=64):
+def load_dataset(x, y, batch_size=5):
     """
     load data for neural network
 
@@ -381,6 +416,13 @@ def load_dataset(x, y, batch_size=64):
 
     return dataloader
 
+def save_model(model):
+    return save(model.state_dict(), 'QNet.th')
+
+def load_model():
+    q = QNetwork()
+    q.load_state_dict(load('QNet.th', map_location='cpu'))
+    return q
 
 def train(args):
     '''
@@ -397,8 +439,14 @@ def train(args):
     criterion = args.criterion
     dataloader = args.dataloader
 
-    # running_loss = 0.0
-    # running_corrects = 0
+    best_epoch = 0
+    best_loss = 1E8
+
+    train_flag = True
+
+    running_loss = 0.0
+    running_corrects = 0
+
     model.train()
     for e in range(args.num_epochs):
         running_loss = 0
@@ -413,10 +461,21 @@ def train(args):
             loss.backward()
             optimizer.step()
             running_loss += loss.item()* inputs.size(0)
-            running_corrects += torch.sum(abs(preds-labels.data)<args.tol)
-        # epoch_loss = running_loss / len(args.train_set)
-        # epoch_acc = running_corrects.double() / len(args.train_set)
-        # print('Epoch: {} Loss: {:.4f} Acc: {:.4f}'.format(e, epoch_loss, epoch_acc))
+            running_corrects += torch.sum(abs(outputs.reshape(-1).detach()-labels.data)<0.01)
+
+        epoch_loss = running_loss / len(args.train_set)
+        epoch_acc = running_corrects.double() / len(args.train_set)
+
+        if args.log_permit is True:
+            print('Epoch: {} Loss: {:.4f} Acc: {:.4f}'.format(e, epoch_loss, epoch_acc))
+
+        if epoch_loss < best_loss:
+            best_loss = epoch_loss
+            best_epoch = e
+
+        if e-best_epoch > 30:
+            if args.log_permit is True: print('Early Stopping!')
+            train_flag = False
 
     return model
 
@@ -424,14 +483,14 @@ def get_args():
     class Args(object):
         pass
     args = Args()
-    args.occ_map = occ_map
+
     args.model = QNetwork()
-    args.Qlr = 0.05
+    args.Qlr = 0.3
     args.lr = 0.001
     args.discount = 0.9
     args.epsilon = 0.8
-    args.decay_rate = 0.97
-    args.max_episodes = 1000
+    args.decay_rate = 0.95
+    args.max_episodes = 100
     args.tol = 1e-4
     args.max_steps = 500
 
@@ -439,12 +498,15 @@ def get_args():
     args.train_labels = None
     args.dataloader = None
     args.batch_size = 120
-    args.num_epochs = 100
+    args.num_epochs = 2000
+    # args.optimizer = torch.optim.AdamW(args.model.parameters(),lr = args.lr)
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
+
+    args.log_permit = True
     return args
 
-if __name__ == '__main__':
+def get_samples_from_new_map():
     for _ in range(20):
         try:
             with ExpectTimeout(3):
@@ -463,11 +525,8 @@ if __name__ == '__main__':
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
-    quadrotor = Quadrotor(quad_params)
     args = get_args()
-
-
-
+    args.occ_map = occ_map
     action_List = np.zeros((my_path.shape))
     discretized_path = np.zeros((my_path.shape))
 
@@ -489,20 +548,44 @@ if __name__ == '__main__':
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
-    args.dataloader = load_dataset(warm_up_set,warm_up_labels)
-    args.train_set = warm_up_set
-    args.train_labels = warm_up_labels
-    args.model = train(args)
-
-    state = discretized_path[0]
-
-    all_pairs, action_array = get_all_pairs(args, state)
 
 
+
+
+    return args, warm_up_set, warm_up_labels
+
+if __name__ == '__main__':
+    args, warm_up_set, warm_up_labels = get_samples_from_new_map()
+    args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
+    args.train_set = np.zeros((1,23))
+    args.train_labels = np.array([[0]])
+    # args.model = train(args)
+    Qlearning(args)
+    # args2, warm_up_set2, warm_up_labels2 = get_samples_from_new_map()
+    # args2.dataloader = load_dataset(warm_up_set2,warm_up_labels2,batch_size=20)
+    # args2.train_set = warm_up_set2
+    # args2.train_labels = warm_up_labels2
+    # args2.model = args.model
+    # Qlearning(args2)
+
+    save_model(args.model)
+
+
+
+
+    # state = discretized_path[0]
+    args.num_epochs = 1000
+
+    # all_pairs, action_array = get_all_pairs(args, state)
+
+
+    # maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
+    # chosen_action = action_array[maxQ]
+    # real_action = action_List[0]
 
     # print(args.model.predict(torch.tensor(all_pairs)))
 
-    reward_list, position_list, success_list = Qlearning(args)
-    print(reward_list)
-    print(position_list)
-    print(success_list)
+    # reward_list, position_list, success_list = Qlearning(args)
+    # print(reward_list)
+    # print(position_list)
+    # print(success_list)
