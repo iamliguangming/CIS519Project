@@ -23,6 +23,8 @@ from flightsim.simulate import Quadrotor
 from flightsim.world import World
 from tqdm import tqdm
 from flightsim.world import ExpectTimeout
+from flightsim.axes3ds import Axes3Ds
+import matplotlib.pyplot as plt
 import pdb
 
 def search_direction(args, position_index, direction, steps):
@@ -520,6 +522,7 @@ def get_samples_from_new_map():
     resolution=(.25, .25, .25)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
+
     start = world.world['start']  # Start point, shape=(3,)
     goal = world.world['goal']  # Goal point, shape=(3,)
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
@@ -545,6 +548,15 @@ def get_samples_from_new_map():
     args.start = start_index
     args.goal = goal_index
     args.search_range = 20
+    fig = plt.figure()
+    ax = Axes3Ds(fig)
+
+    ax.plot([start[0]], [start[1]], [start[2]], 'go', markersize=16, markeredgewidth=3, markerfacecolor='none')
+    ax.plot([goal[0]],  [goal[1]],  [goal[2]], 'ro', markersize=16, markeredgewidth=3, markerfacecolor='none')
+    world.draw(ax)
+    occ_map.draw(ax)
+
+    plt.show()
     warm_up_set, warm_up_labels = get_all_warm_up(args,
                                                   discretized_path,
                                                   action_List)
@@ -560,21 +572,16 @@ if __name__ == '__main__':
     args.train_set = np.zeros((1,23))
     args.train_labels = np.array([[0]])
     # args.model = train(args)
-    Qlearning(args)
-    # args2, warm_up_set2, warm_up_labels2 = get_samples_from_new_map()
-    # args2.dataloader = load_dataset(warm_up_set2,warm_up_labels2,batch_size=20)
-    # args2.train_set = warm_up_set2
-    # args2.train_labels = warm_up_labels2
-    # args2.model = args.model
-    # Qlearning(args2)
+    # Qlearning(args)
 
-    save_model(args.model)
+
+    # save_model(args.model)
 
 
 
 
     # state = discretized_path[0]
-    args.num_epochs = 1000
+    # args.num_epochs = 1000
 
     # all_pairs, action_array = get_all_pairs(args, state)
 
