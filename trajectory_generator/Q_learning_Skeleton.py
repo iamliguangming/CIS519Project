@@ -212,7 +212,7 @@ def choose_action(args,state,epsilon):
         chosen_action = action_array[np.argmax(Q_array)]
     else:
         chosen_action = action_array[np.random.randint(0, 27)]
-        print('I am searching\n')
+        print('I am searching！')
 
     # print (chosen_action)
     return chosen_action, np.max(Q_array)
@@ -255,9 +255,21 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
     """
     Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
     _, next_Q = choose_action(args,next_state,0)
+<<<<<<< Updated upstream
 
     if terminal:
         Q = np.array([[reward]])
+=======
+    if not args.occ_map.is_valid_index(
+            next_state) or args.occ_map.is_occupied_index(next_state):
+        next_Q = -100
+
+    if terminal:
+        print('\nReach goal!')
+        print(f'Q before update:{Q.detach().numpy()}')
+        Q = np.array([[reward]])*100
+        print(f'Q after update:{Q.item()}')
+>>>>>>> Stashed changes
 
     # Adjust Q value for current state
     elif done:
@@ -270,7 +282,18 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
         except:
             pdb.set_trace()
 
+<<<<<<< Updated upstream
 
+=======
+        print(f'\nState: {state}, Next state: {next_state}')
+        print(f'Reward: {reward}, next_Q: {next_Q}')
+        print(f'Delta:{delta.detach().numpy().item()}')
+        print(f'Q before update:{Q.detach().numpy().item()}')
+
+        Q += delta
+        Q = Q.detach().numpy()
+        print(f'Q after update:{Q.item()}')
+>>>>>>> Stashed changes
 
     return Q
 
@@ -299,9 +322,16 @@ def Qlearning(args):
         tot_reward = 0 # sum of total reward over a single
         state = args.start
         num_steps = 0
+<<<<<<< Updated upstream
         first_Time = True
         args.train_set = np.zeros((1,23))
         args.train_labels = np.zeros((1,1))
+=======
+        # first_Time = True
+        # args.train_set = np.zeros((1,23))
+        # args.train_labels = np.zeros((1,1))
+        print(f'Searching likelihood: {args.epsilon}')
+>>>>>>> Stashed changes
 
         while done != True and num_steps <= args.max_steps:
             # Determine next action
@@ -353,6 +383,11 @@ class QNetwork(nn.Module):
         self.fc = nn.Sequential(
             nn.Linear(23, 50),
             nn.ReLU(True),
+<<<<<<< Updated upstream
+=======
+            nn.Linear(50,50),
+            nn.ReLU(True),
+>>>>>>> Stashed changes
             nn.Linear(50, 1)
         )
 
@@ -499,6 +534,36 @@ if __name__ == '__main__':
     all_pairs, action_array = get_all_pairs(args, state)
 
 
+<<<<<<< Updated upstream
+=======
+    return args, warm_up_set, warm_up_labels
+
+if __name__ == '__main__':
+    args, warm_up_set, warm_up_labels = get_samples_from_new_map()
+    args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
+    args.train_set = np.zeros((1,23))
+    args.train_labels = np.array([[0]])
+    # args.model = train(args)
+    Qlearning(args)
+    # args2, warm_up_set2, warm_up_labels2 = get_samples_from_new_map()
+    # args2.dataloader = load_dataset(warm_up_set2,warm_up_labels2,batch_size=20)
+    # args2.train_set = warm_up_set2
+    # args2.train_labels = warm_up_labels2
+    # args2.model = args.model
+    # Qlearning(args2)
+
+    save_model(args.model)
+
+    # state = discretized_path[0]
+    args.num_epochs = 1000
+
+    # all_pairs, action_array = get_all_pairs(args, state)
+
+
+    # maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
+    # chosen_action = action_array[maxQ]
+    # real_action = action_List[0]
+>>>>>>> Stashed changes
 
     # print(args.model.predict(torch.tensor(all_pairs)))
 
