@@ -2,10 +2,112 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="a8dde019-da11-4869-b456-63ed4fb8370f" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/trajectory_generator.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/trajectory_generator.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_0.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_1.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_10.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_11.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_12.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_13.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_14.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_15.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_16.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_17.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_18.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_19.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_2.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_20.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_21.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_22.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_23.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_24.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_25.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_26.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_27.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_28.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_29.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_3.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_30.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_31.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_32.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_33.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_34.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_35.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_36.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_37.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_38.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_39.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_4.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_40.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_41.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_42.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_43.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_44.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_45.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_46.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_47.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_48.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_49.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_5.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_50.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_51.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_52.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_53.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_54.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_55.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_56.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_57.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_58.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_59.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_6.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_60.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_61.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_62.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_63.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_64.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_65.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_66.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_67.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_68.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_69.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_7.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_70.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_71.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_72.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_73.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_74.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_75.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_76.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_77.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_78.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_79.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_8.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_80.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_81.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_82.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_83.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_84.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_85.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_86.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_87.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_88.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_89.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_9.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_90.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_91.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_92.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_93.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_94.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_95.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_96.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_97.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_98.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../episode_99.mp4" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Q_learning_Skeleton.py" beforeDir="false" afterPath="$PROJECT_DIR$/Q_learning_Skeleton.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Q_learning_Skeleton_Pan.py" beforeDir="false" afterPath="$PROJECT_DIR$/Q_learning_Skeleton_Pan.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/episode_0.mp4" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/flightsim/world.py" beforeDir="false" afterPath="$PROJECT_DIR$/flightsim/world.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/generator/code/display_random_map.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator/code/display_random_map.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -42,8 +144,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/Q_learning_Skeleton.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="280">
-              <caret line="20" column="39" selection-start-line="20" selection-start-column="39" selection-end-line="20" selection-end-column="39" />
+            <state relative-caret-position="196">
+              <caret line="14" column="44" lean-forward="true" selection-start-line="14" selection-start-column="44" selection-end-line="14" selection-end-column="44" />
             </state>
           </provider>
         </entry>
@@ -98,7 +200,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="7">
+  <component name="ProjectFrameBounds" extendedState="6">
     <option name="x" value="839" />
     <option name="y" value="49" />
     <option name="width" value="1029" />
@@ -217,7 +319,7 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1056" extended-state="7" />
+    <frame x="-8" y="-8" width="1936" height="1056" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.24973656" />
@@ -282,8 +384,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/Q_learning_Skeleton.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="280">
-          <caret line="20" column="39" selection-start-line="20" selection-start-column="39" selection-end-line="20" selection-end-column="39" />
+        <state relative-caret-position="196">
+          <caret line="14" column="44" lean-forward="true" selection-start-line="14" selection-start-column="44" selection-end-line="14" selection-end-column="44" />
         </state>
       </provider>
     </entry>

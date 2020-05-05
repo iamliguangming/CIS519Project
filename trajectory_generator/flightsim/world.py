@@ -328,6 +328,8 @@ class World(object):
                     break
                 else:
                     continue
+        
+        
         #Start  position
         while True:
             xs1 = np.random.uniform(lower_bounds[0] + (robot_radii+margin), upper_bounds[0] - (robot_radii+margin))
@@ -385,6 +387,32 @@ class World(object):
                 continue
         world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
         return cls(world_data)
+    @classmethod
+    def fixed_block(cls, lower_bounds,upper_bounds,block_width, block_height, num_blocks,robot_radii,margin):
+        bounds = {'extents': [lower_bounds[0], upper_bounds[0], lower_bounds[1], upper_bounds[1], lower_bounds[2], upper_bounds[2]]}
+        blocks = []
+        extents = list(np.array([-1, -0.75, -1.25, -1 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([0, 0.25, -1.25, -1 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([-0.5, 0, 0, 0.5 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([0, 0.5, 1.5, 1.75 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([2.4, 2.6, 1.25, 1.75 , 0, 1]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([1, 1.25, -1, -0.75 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        extents = list(np.array([2, 2.25, -0.25, 0 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+        
+        
+        start=np.array([-1.5,-1.5, 0.5])
+        goal=np.array([2.5,1.5, 1.5])
+        world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
+        return cls(world_data)        
+
+
 
 class ExpectTimeout(object):
     def __init__(self, seconds, print_traceback=True, mute=False):
@@ -438,6 +466,10 @@ class ExpectTimeout(object):
 
     def cancel(self):
         sys.settrace(self.original_trace_function)
+
+    
+
+
 
 if __name__ == '__main__':
     import argparse

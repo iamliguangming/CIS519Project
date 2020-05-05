@@ -537,9 +537,9 @@ def get_args():
     args.discount = 0.9
     args.epsilon = 0.8
     args.decay_rate = 0.95
-    args.max_episodes = 50
+    args.max_episodes = 100
     args.tol = 1e-4
-    args.max_steps = 100
+    args.max_steps = 500
     args.final_path  = []
     args.train_set = None
     args.train_labels = None
@@ -562,7 +562,7 @@ def get_samples_from_new_map():
     for _ in range(20):
         try:
             with ExpectTimeout(3):
-                world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
+                world = World.fixed_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
                                block_width=0.5, block_height=1.5,
                                num_blocks=4, robot_radii=0.25, margin=0.2)
                 break

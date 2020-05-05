@@ -17,7 +17,7 @@ ax = Axes3Ds(fig)
 for _ in range(20):
     try:
         with ExpectTimeout(3):
-            world = World.random_block(lower_bounds=(-2,-2,0),upper_bounds=(3,2,2),block_width=0.5,block_height=1.5,num_blocks=4,robot_radii=robot_radius,margin=0.2)
+            world = World.fixed_block(lower_bounds=(-2,-2,0),upper_bounds=(3,2,2),block_width=0.5,block_height=1.5,num_blocks=4,robot_radii=robot_radius,margin=0.2)
             break
     except TimeoutError:
         pass

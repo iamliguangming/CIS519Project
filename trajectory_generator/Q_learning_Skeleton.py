@@ -26,7 +26,6 @@ from flightsim.world import ExpectTimeout
 from flightsim.axes3ds import Axes3Ds
 import matplotlib.pyplot as plt
 from flightsim.animate import animate
-import pdb
 
 def search_direction(args, position_index, direction, steps):
     """
@@ -132,7 +131,6 @@ def get_extended_state(args, state):
 
     return extended_state
 
-# The following section is for Q learning
 def step(args, state, action):
     """
     Inputs:
@@ -148,7 +146,6 @@ def step(args, state, action):
     distance_before_action = np.linalg.norm(args.goal - state)
     state = state + action
     distance_after_action =  np.linalg.norm(args.goal - state)
-    distance_traveled = np.linalg.norm(action)
     reward = (distance_before_action - distance_after_action
               ) / distance_before_action
     if not args.occ_map.is_valid_index(state) or args.occ_map.is_occupied_index(state):
@@ -209,10 +206,6 @@ def choose_action(args,state,epsilon):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
-    # print(Q_array)
-    # print('\n')
-    # print(action_array[np.argmax(Q_array)])
-    # print(np.max(Q_array))
     if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
@@ -270,9 +263,6 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
         Q = np.array([[reward]])*100
         print(f'Q after update:{Q.item()}')
 
-    # Adjust Q value for current state
-    # elif done:
-    #     Q = np.array([[-100]])
     else:
         delta = args.Qlr*(100*reward + args.discount*next_Q - Q)
 
@@ -329,9 +319,6 @@ def Qlearning(args):
         tot_reward = 0 # sum of total reward over a single
         state = args.start
         num_steps = 0
-        # first_Time = True
-        # args.train_set = np.zeros((1,23))
-        # args.train_labels = np.zeros((1,1))
         print(f'\n Searching Likelihood: {args.epsilon}')
 
         path_length = 0
@@ -351,17 +338,7 @@ def Qlearning(args):
             add_replace_element(args, args.train_set, args.train_labels
                                 , state_action_pair, Q)
 
-            # if first_Time:
-            #     args.train_set = state_action_pair.reshape(1,-1)
-            #     args.train_labels = Q
-            #     first_Time = False
-            # else:
-            #     args.train_set,args.train_labels = aggregate_dataset(
-            #         args.train_set,args.train_labels,state_action_pair,Q)
-
             tot_reward += reward
-            # print('\n')
-            # print(f'State : {state}, Q : {Q}')
             path_length += np.linalg.norm(next_state - state)
             state = next_state
             if terminal: success += 1
@@ -380,20 +357,12 @@ def Qlearning(args):
 
         args.dataloader = load_dataset(args.train_set, args.train_labels, batch_size = 20)
         train(args)
-
-        # args.dataloader = load_dataset(args.train_set,args.train_labels)
-        # train(args)
         args.epsilon = update_epsilon(args.epsilon, args.decay_rate) #Update level of epsilon using update_epsilon()
 
         # Track rewards
         reward_list.append(tot_reward)
         position_list.append(next_state.tolist())
         success_list.append(success/(i+1))
-
-        # if (i+1) % 100 == 0:
-        #     print('Episode: ', i+1, 'Average Reward over 100 Episodes: ',np.mean(reward_list))
-        #     reward_list = []
-
     return reward_list, position_list, success_list
 
 class QNetwork(nn.Module):
@@ -525,7 +494,6 @@ def get_args():
     args.best_path_length = 1E8
     args.optimal_path_length = 0
     args.max_time = 10
-    # args.optimizer = torch.optim.AdamW(args.model.parameters(),lr = args.lr)
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
 
@@ -538,7 +506,7 @@ def get_samples_from_new_map():
     for _ in range(20):
         try:
             with ExpectTimeout(3):
-                world = World.random_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
+                world = World.fixed_block(lower_bounds=(-2, -2, 0), upper_bounds=(3, 2, 2),
                                block_width=0.5, block_height=1.5,
                                num_blocks=4, robot_radii=0.25, margin=0.2)
                 break
@@ -592,26 +560,7 @@ if __name__ == '__main__':
     args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
     args.train_set = np.zeros((1,23))
     args.train_labels = np.array([[0]])
-    # args.model = train(args)
-    # Qlearning(args)
-
-    # save_model(args.model)
-    # state = discretized_path[0]
-    # args.num_epochs = 1000
-
-    # all_pairs, action_array = get_all_pairs(args, state)
-
-
-    # maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
-    # chosen_action = action_array[maxQ]
-    # real_action = action_List[0]
-
-    # print(args.model.predict(torch.tensor(all_pairs)))
-
     reward_list, position_list, success_list = Qlearning(args)
-    # print(reward_list)
-    # print(position_list)
-    # print(success_list)
     fig = plt.figure()
     ax = Axes3Ds(fig)
 
@@ -619,7 +568,6 @@ if __name__ == '__main__':
         markeredgewidth=3, markerfacecolor='none')
     ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'r*', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
-    # args.world.draw_line(ax,  , color='red', linewidth=1)
     args.world.draw_points(ax, args.final_path, color='purple', markersize=8)
     args.world.draw(ax)
     args.occ_map.draw(ax)
