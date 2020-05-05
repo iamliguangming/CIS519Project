@@ -396,6 +396,13 @@ def Qlearning(args):
                         success += 1
                         
                 num_steps += 1
+        time = np.zeros((len(path_list),))
+        for j in range(1,len(time)):
+            time[j] = time[j-1] + args.max_time/len(time)
+        position = np.asarray(path_list)
+        rotation = np.full((len(time),3,3),np.identity(3))
+        animate(args.st,args.go,time, position, rotation, args.world,
+         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
 
         if terminal and path_length < args.best_path_length and flag==0:
             args.best_path_length = path_length
@@ -634,7 +641,7 @@ if __name__ == '__main__':
 
     ax.plot([args.st[0]], [args.st[1]], [args.st[2]], 'go', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
-    ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'ro', markersize=16,
+    ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'r*', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
     # args.world.draw_line(ax, args.final_path, color='red', linewidth=1)
     args.world.draw_points(ax, args.final_path, color='purple', markersize=8)
