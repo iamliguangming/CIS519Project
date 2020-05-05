@@ -23,7 +23,7 @@ def _decimate_index(time, sample_time):
     sample_index = np.round(np.interp(sample_time, time, index)).astype(int)
     return sample_index
 
-def animate(time, position, rotation, world, filename=None, blit=True, show_axes=True):
+def animate(start,goal,time, position, rotation, world, filename=None, blit=True, show_axes=True):
     """
     Animate a completed simulation result based on the time, position, and
     rotation history. The animation may be viewed live or saved to a .mp4 video
@@ -63,6 +63,10 @@ def animate(time, position, rotation, world, filename=None, blit=True, show_axes
     else:
         fig = plt.figure('Animation')
     ax = Axes3Ds(fig)
+    ax.plot([start[0]], [start[1]], [start[2]], 'go', markersize=16,
+        markeredgewidth=3, markerfacecolor='none')
+    ax.plot([goal[0]],  [goal[1]],  [goal[2]], 'r*', markersize=16,
+        markeredgewidth=3, markerfacecolor='none')
     if not show_axes:
         ax.set_axis_off()
     ax.set_xlim(-1,1)

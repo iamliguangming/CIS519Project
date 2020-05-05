@@ -25,6 +25,7 @@ from tqdm import tqdm
 from flightsim.world import ExpectTimeout
 from flightsim.axes3ds import Axes3Ds
 import matplotlib.pyplot as plt
+from flightsim.animate import animate
 import pdb
 
 def search_direction(args, position_index, direction, steps):
@@ -366,12 +367,18 @@ def Qlearning(args):
             if terminal: success += 1
             num_steps += 1
 
+        time = np.zeros((len(path_list),))
+        for j in range(1,len(time)):
+            time[j] = time[j-1] + args.max_time/len(time)
+        position = np.asarray(path_list)
+        rotation = np.full((len(time),3,3),np.identity(3))
+        animate(args.st,args.go,time, position, rotation, args.world,
+         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
         if terminal and path_length < args.best_path_length:
             args.best_path_length = path_length
             args.final_path = path_list
 
-        args.dataloader = load_dataset(args.train_set,
-                                           args.train_labels, batch_size = 20)
+        args.dataloader = load_dataset(args.train_set, args.train_labels, batch_size = 20)
         train(args)
 
         # args.dataloader = load_dataset(args.train_set,args.train_labels)
@@ -506,7 +513,7 @@ def get_args():
     args.discount = 0.9
     args.epsilon = 0.8
     args.decay_rate = 0.95
-    args.max_episodes = 200
+    args.max_episodes = 100
     args.tol = 1e-4
     args.max_steps = 500
     args.final_path  = []
@@ -517,6 +524,7 @@ def get_args():
     args.num_epochs = 2000
     args.best_path_length = 1E8
     args.optimal_path_length = 0
+    args.max_time = 10
     # args.optimizer = torch.optim.AdamW(args.model.parameters(),lr = args.lr)
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
@@ -536,7 +544,7 @@ def get_samples_from_new_map():
                 break
         except TimeoutError:
             pass
-  
+
     resolution=(.25, .25, .25)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
@@ -546,7 +554,7 @@ def get_samples_from_new_map():
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
-  
+
     args = get_args()
     args.go = goal
     args.st = start
@@ -609,21 +617,14 @@ if __name__ == '__main__':
 
     ax.plot([args.st[0]], [args.st[1]], [args.st[2]], 'go', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
-    ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'ro', markersize=16,
+    ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'r*', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
-    # args.world.draw_line(ax, args.final_path, color='red', linewidth=1)
+    # args.world.draw_line(ax,  , color='red', linewidth=1)
     args.world.draw_points(ax, args.final_path, color='purple', markersize=8)
     args.world.draw(ax)
     args.occ_map.draw(ax)
 
     plt.show()
-
-    # plt.plot(args.final_path)
-    # plt.xlabel('Step')
-    # plt.ylabel('Final Path')
-    # plt.title('Final Path')
-    # plt.show()
-    # plt.close()
 
     plt.plot(success_list)
     plt.xlabel('Episode')
