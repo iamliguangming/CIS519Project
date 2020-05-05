@@ -394,17 +394,20 @@ class World(object):
         extents = list(np.array([-1.5, -1, -1, -0.5 , 0, 2]))
         blocks.append({'extents': extents, 'color': [1, 0, 0]})
 
+        extents = list(np.array([0, 0.5, -1, -0.5 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+
+        extents = list(np.array([1.5, 2, 1, 1.5 , 0, 2]))
+        blocks.append({'extents': extents, 'color': [1, 0, 0]})
+
         extents = list(np.array([1.5, 2, -1, -0.5 , 0, 2]))
         blocks.append({'extents': extents, 'color': [1, 0, 0]})
-
-        extents = list(np.array([1.5, 2, 0.5, 1 , 0, 2]))
-        blocks.append({'extents': extents, 'color': [1, 0, 0]})
-
-        extents = list(np.array([0, 0.5, 0, 0.5 , 0, 2]))
+        
+        extents = list(np.array([0, 0.5, -1, -1.5 , 0, 2]))
         blocks.append({'extents': extents, 'color': [1, 0, 0]})
 
         start=np.array([-1.5,-1.5, 0.5])
-        goal=np.array([2.5,1.5, 1.5])
+        goal=np.array([2,0, 1.5])
         world_data = {'bounds': bounds, 'blocks': blocks,'start': start,'goal': goal}
         return cls(world_data)        
 

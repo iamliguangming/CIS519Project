@@ -337,6 +337,8 @@ def Qlearning(args):
     position_list = []
     success_list = []
     success = 0 # count of number of successes reached
+    
+    success_array_5= 0
 
     first_Time = True
 
@@ -401,8 +403,8 @@ def Qlearning(args):
             time[j] = time[j-1] + args.max_time/len(time)
         position = np.asarray(path_list)
         rotation = np.full((len(time),3,3),np.identity(3))
-        animate(args.st,args.go,time, position, rotation, args.world,
-         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
+#        animate(args.st,args.go,time, position, rotation, args.world,
+#         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
 
         if terminal and path_length < args.best_path_length and flag==0:
             args.best_path_length = path_length
@@ -417,7 +419,10 @@ def Qlearning(args):
         # Track rewards
         reward_list.append(tot_reward)
         position_list.append(next_state.tolist())
-        success_list.append(success/(i+1))
+        success_array_5 += success
+        if i==0 or i % 5==4:
+            success_list.append(success_array_5/5)
+            success_array_5 = 0
     return reward_list, position_list, success_list
 
 class QNetwork(nn.Module):
@@ -650,14 +655,9 @@ if __name__ == '__main__':
 
     plt.show()
 
-    # plt.plot(args.final_path)
-    # plt.xlabel('Step')
-    # plt.ylabel('Final Path')
-    # plt.title('Final Path')
-    # plt.show()
-    # plt.close()
+    x= np.arange(0,(args.max_episodes/5)+1)
+    plt.plot(5*x,success_list)
 
-    plt.plot(success_list)
     plt.xlabel('Episode')
     plt.ylabel('Success Rate')
     plt.title('Success Rate')
