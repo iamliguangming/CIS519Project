@@ -211,16 +211,16 @@ def choose_action(args,state,epsilon,delete_action_list):
         for i in delete_action_list:
             action_list.remove(i)
         action_array=np.asarray(action_list)
-        
+
         for i in delete_action_list:
             delete_action = np.asarray(i).flatten()
             delete_action_pairs_list.append(get_pair(args,state,delete_action).tolist())
-            
+
         all_pairs_list=all_pairs.tolist()
         for i in delete_action_pairs_list:
             all_pairs_list.remove(i)
         all_pairs=np.asarray(all_pairs_list)
-        
+
 
 
     Q_array = np.zeros(action_array.shape[0])
@@ -337,7 +337,7 @@ def Qlearning(args):
     position_list = []
     success_list = []
     success = 0 # count of number of successes reached
-    
+
     success_array_5= 0
 
     first_Time = True
@@ -378,7 +378,7 @@ def Qlearning(args):
                 flag=1
                 continue
             else:
-               
+
                 next_state, reward, done = step(args,state,action)
                 # Update terminal
                 terminal = (done and (np.linalg.norm(next_state - args.goal) <= args.tol))
@@ -391,12 +391,12 @@ def Qlearning(args):
                 delete_action_list=[]
                 tot_reward += reward
                 state = next_state
-                if flag==0 : 
+                if flag==0 :
                     path_list.append((args.occ_map.index_to_metric_center(state)).tolist())
                     path_length += np.linalg.norm(next_state - state)
                     if terminal:
                         success += 1
-                        
+
                 num_steps += 1
         time = np.zeros((len(path_list),))
         for j in range(1,len(time)):
@@ -409,7 +409,7 @@ def Qlearning(args):
         if terminal and path_length < args.best_path_length and flag==0:
             args.best_path_length = path_length
             args.final_path = path_list
-            
+
         args.dataloader = load_dataset(args.train_set,
                                            args.train_labels, batch_size = 20)
         train(args)
@@ -423,7 +423,7 @@ def Qlearning(args):
         if i==0 or i % 5==4:
             success_list.append(success_array_5/5)
             success_array_5 = 0
-            success = 0
+        success = 0
     return reward_list, position_list, success_list
 
 class QNetwork(nn.Module):
@@ -574,7 +574,7 @@ def get_samples_from_new_map():
                 break
         except TimeoutError:
             pass
-  
+
     resolution=(.25, .25, .25)
     margin=.2
     occ_map = OccupancyMap(world,resolution,margin)
@@ -584,7 +584,7 @@ def get_samples_from_new_map():
     my_path = graph_search(world, resolution, margin, start, goal, False)[1:-1]
     start = my_path[0]
     goal = my_path[-1]
-  
+
     args = get_args()
     args.go = goal
     args.st = start
