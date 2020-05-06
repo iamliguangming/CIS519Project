@@ -402,9 +402,6 @@ class World(object):
 
         extents = list(np.array([1.5, 2, -1, -0.5 , 0, 2]))
         blocks.append({'extents': extents, 'color': [1, 0, 0]})
-        
-        extents = list(np.array([0, 0.5, -1, -1.5 , 0, 2]))
-        blocks.append({'extents': extents, 'color': [1, 0, 0]})
 
         start=np.array([-1.5,-1.5, 0.5])
         goal=np.array([2,0, 1.5])

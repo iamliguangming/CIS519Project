@@ -351,8 +351,8 @@ def Qlearning(args):
             time[j] = time[j-1] + args.max_time/len(time)
         position = np.asarray(path_list)
         rotation = np.full((len(time),3,3),np.identity(3))
-#        animate(args.st,args.go,time, position, rotation, args.world,
-#         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
+        animate(args.st,args.go,time, position, rotation, args.world,
+        filename = 'episode_'+str(i)+'.mp4',show_axes = True)
         if terminal and path_length < args.best_path_length:
             args.best_path_length = path_length
             args.final_path = path_list
@@ -368,6 +368,7 @@ def Qlearning(args):
         if i==0 or i % 5==4:
             success_list.append(success_array_5/5)
             success_array_5 = 0
+            success = 0
     return reward_list, position_list, success_list
 
 class QNetwork(nn.Module):
@@ -563,8 +564,11 @@ def get_samples_from_new_map():
 if __name__ == '__main__':
     args, warm_up_set, warm_up_labels = get_samples_from_new_map()
     args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
-    args.train_set = np.zeros((1,23))
-    args.train_labels = np.array([[0]])
+    args.train_set = warm_up_set
+    args.train_labels = warm_up_labels
+    train(args)
+    # args.train_set = np.zeros((1,23))
+    # args.train_labels = np.array([[0]])
     reward_list, position_list, success_list = Qlearning(args)
     fig = plt.figure()
     ax = Axes3Ds(fig)

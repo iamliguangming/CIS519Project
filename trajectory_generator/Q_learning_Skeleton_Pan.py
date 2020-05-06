@@ -423,6 +423,7 @@ def Qlearning(args):
         if i==0 or i % 5==4:
             success_list.append(success_array_5/5)
             success_array_5 = 0
+            success = 0
     return reward_list, position_list, success_list
 
 class QNetwork(nn.Module):
