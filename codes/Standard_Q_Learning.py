@@ -10,23 +10,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import save, load
-from os import path
 from torch.utils.data import DataLoader
-from scipy.spatial.transform import Rotation
-from flightsim.crazyflie_params import quad_params
 from generator.code.occupancy_map import OccupancyMap
-from generator.code.se3_control import SE3Control
-from generator.code.world_traj import WorldTraj
 from generator.code.graph_search import graph_search
-from flightsim.simulate import simulate
-from flightsim.simulate import Quadrotor
 from flightsim.world import World
-from flightsim.animate import animate
 from tqdm import tqdm
 from flightsim.world import ExpectTimeout
 from flightsim.axes3ds import Axes3Ds
 import matplotlib.pyplot as plt
-import pdb
+from flightsim.animate import animate
 
 def search_direction(args, position_index, direction, steps):
     """
@@ -93,7 +85,7 @@ def get_all_warm_up(args,discretized_path,action_List):
                                              discretized_path[0],
                                              action_List[0])
     for i in range(1,discretized_path.shape[0]):
-        print(f'{i} out of {discretized_path.shape}')
+        # print(f'{i} out of {discretized_path.shape}')
         new_train_set, new_train_labels = get_warmup_data(args,
                                                           discretized_path[i],
                                                           action_List[i])
@@ -132,7 +124,6 @@ def get_extended_state(args, state):
 
     return extended_state
 
-# The following section is for Q learning
 def step(args, state, action):
     """
     Inputs:
@@ -148,7 +139,6 @@ def step(args, state, action):
     distance_before_action = np.linalg.norm(args.goal - state)
     state = state + action
     distance_after_action =  np.linalg.norm(args.goal - state)
-    distance_traveled = np.linalg.norm(action)
     reward = (distance_before_action - distance_after_action
               ) / distance_before_action
     if not args.occ_map.is_valid_index(state) or args.occ_map.is_occupied_index(state):
@@ -191,55 +181,33 @@ def get_all_pairs(args, state):
                 count += 1
     return all_pairs, action_array.astype(int)
 
-def choose_action(args,state,epsilon,delete_action_list):
+def choose_action(args,state,epsilon):
     """
     Choose an action according to an epsilon greedy strategy.
     Args:
         args, an object with set of parameters and objects
         state : raw state of position : nparray(3,)
         epsilon (float): the probability of choosing a random action
-        delete_action_list (list)
 
     Returns:
         chosen_action (3,) np_array: the chosen action
         Q value of chosen_action (int)
     """
-    delete_action_pairs_list=[]
     all_pairs, action_array = get_all_pairs(args, state)
-    if delete_action_list:
-        action_list=action_array.tolist()
-        for i in delete_action_list:
-            action_list.remove(i)
-        action_array=np.asarray(action_list)
-
-        for i in delete_action_list:
-            delete_action = np.asarray(i).flatten()
-            delete_action_pairs_list.append(get_pair(args,state,delete_action).tolist())
-
-        all_pairs_list=all_pairs.tolist()
-        for i in delete_action_pairs_list:
-            all_pairs_list.remove(i)
-        all_pairs=np.asarray(all_pairs_list)
-
-
-
-    Q_array = np.zeros(action_array.shape[0])
-    for i in range(action_array.shape[0]):
+    Q_array = np.zeros(27)
+    for i in range(27):
         Q_array[i] = args.model.predict(torch.tensor(all_pairs[i]).float())
 
     chosen_action = np.zeros((3,))
-    # print(Q_array)
-    # print('\n')
-    # print(action_array[np.argmax(Q_array)])
-    # print(np.max(Q_array))
     if np.random.random() < 1 - epsilon:
         chosen_action = action_array[np.argmax(Q_array)]
     else:
-        chosen_action = action_array[np.random.randint(0, action_array.shape[0])]
+        chosen_action = action_array[np.random.randint(0, 27)]
         print('I am searching\n')
 
     # print (chosen_action)
     return chosen_action, np.max(Q_array)
+
 
 def update_epsilon(epsilon, decay_rate):
     """
@@ -277,33 +245,28 @@ def get_target_Q(args, state, next_state, action, reward, terminal,done):
         Q, with its value updated.
     """
     Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
-    _, next_Q = choose_action(args,next_state,0,[])
+    _, next_Q = choose_action(args,next_state,0)
     if not args.occ_map.is_valid_index(
             next_state) or args.occ_map.is_occupied_index(next_state):
         next_Q = torch.tensor([[-100]])
 
     if terminal:
-        print('Reach goal!')
-        print(f'Q before update:{Q}')
+        print('\nReach goal!')
+        print(f'Q before update:{Q.detach().numpy().item()}')
         Q = np.array([[reward]])*100
-        print(f'Q after update:{Q}')
+        print(f'Q after update:{Q.item()}')
 
-    # Adjust Q value for current state
-    # elif done:
-    #     Q = np.array([[-100]])
     else:
         delta = args.Qlr*(100*reward + args.discount*next_Q - Q)
 
         print(f'\nState: {state}, Next state: {next_state}')
-        print(args.start)
-        print(args.goal)
         print(f'Reward: {reward}, next_Q: {next_Q}')
-        print(f'Delta:{delta}')
-        print(f'Q before update:{Q}')
+        print(f'Delta:{delta.detach().numpy().item()}')
+        print(f'Q before update:{Q.detach().numpy().item()}')
 
         Q += delta
         Q = Q.detach().numpy()
-        print(f'Q after update:{Q}')
+        print(f'Q after update:{Q.item()}')
 
     return Q
 
@@ -313,20 +276,18 @@ def aggregate_dataset(extended_state_list, Q_array, new_extended_state, new_Q):
 
     return training_states, training_Q
 
-def add_replace_element(args,train_set,train_labels,new_pair,new_Q):
+def add_replace_element(args,new_pair,new_Q):
     inFlag = False
-    for i in range(train_set.shape[0]):
-        if (train_set[i] == new_pair).all():
-            train_labels[i] = new_Q
+    for i in range(args.train_set.shape[0]):
+        if (args.train_set[i] == new_pair).all():
+            args.train_labels[i] = new_Q
             inFlag = True
             break
     if not inFlag:
         args.train_set,args.train_labels = aggregate_dataset(
-             train_set,train_labels,new_pair,new_Q)
-
+             args.train_set,args.train_labels,new_pair,new_Q)
 
     return None
-
 
 def Qlearning(args):
     """
@@ -340,10 +301,8 @@ def Qlearning(args):
 
     success_array_5= 0
 
-    first_Time = True
-
     args.log_permit = False
-
+    
     for i in tqdm(range(args.max_episodes), position = 0):
         # Initialize parameters
         done = False # indicates whether the episode is done
@@ -353,67 +312,45 @@ def Qlearning(args):
         num_steps = 0
         path_length = 0
         path_list = []
-        flag=0
-        # first_Time = True
-        # args.train_set = np.zeros((1,23))
-        # args.train_labels = np.zeros((1,1))
+        flag = 0
         delete_action_list=[]
+        print(f'\n Searching Likelihood: {args.epsilon}')
+
         while done != True and num_steps <= args.max_steps:
             # Determine next action
-            action,_ = choose_action(args,state,args.epsilon, delete_action_list)
-            trial_state = state+action
-            if not args.occ_map.is_valid_index(trial_state) or args.occ_map.is_occupied_index(trial_state):
-                delete_action_list.append(action.tolist())
-                Q = args.model.predict(torch.tensor(get_pair(args,state,action)).float())
-                next_Q = torch.tensor([[-100]])
-                reward=-1
-                delta = args.Qlr*(100*reward + args.discount*next_Q - Q)
-                Q += delta
-                Q = Q.detach().numpy()
-                state_action_pair = get_pair(args,state,action)
-                add_replace_element(args, args.train_set, args.train_labels
-                                    , state_action_pair, Q)
-                print("collision")
-                num_steps += 1
-                flag=1
-                continue
-            else:
+            path_list.append((args.occ_map.index_to_metric_center(state)).tolist())
+            action,_ = choose_action(args,state,args.epsilon)
+            next_state, reward, done = step(args,state,action)
+            # Update terminal
+            terminal = (done and (np.linalg.norm(next_state - args.goal) <= args.tol))
+            # Update Q
+            Q = get_target_Q(args,state,next_state,action,reward,terminal,done)
+            # Update tot_reward, state_disc, and success (if applicable)
+            state_action_pair = get_pair(args,state,action)
+            add_replace_element(args, state_action_pair, Q)
 
-                next_state, reward, done = step(args,state,action)
-                # Update terminal
-                terminal = (done and (np.linalg.norm(next_state - args.goal) <= args.tol))
-                # Update Q
-                Q = get_target_Q(args,state,next_state,action,reward,terminal,done)
-                # Update tot_reward, state_disc, and success (if applicable)
-                state_action_pair = get_pair(args,state,action)
-                add_replace_element(args, args.train_set, args.train_labels
-                                    , state_action_pair, Q)
-                delete_action_list=[]
-                tot_reward += reward
-                state = next_state
-                if flag==0 :
-                    path_list.append((args.occ_map.index_to_metric_center(state)).tolist())
-                    path_length += np.linalg.norm(next_state - state)
-                    if terminal:
-                        success += 1
+            tot_reward += reward
+            path_length += np.linalg.norm(next_state - state)
+            state = next_state
+            if terminal: success += 1
+            num_steps += 1
 
-                num_steps += 1
         time = np.zeros((len(path_list),))
         for j in range(1,len(time)):
             time[j] = time[j-1] + args.max_time/len(time)
-        position = np.asarray(path_list)
-        rotation = np.full((len(time),3,3),np.identity(3))
-#        animate(args.st,args.go,time, position, rotation, args.world,
-#         filename = 'episode_'+str(i)+'.mp4',show_axes = True)
-
-        if terminal and path_length < args.best_path_length and flag==0:
+            
+        if args.animate_permit is True:
+            position = np.asarray(path_list)
+            rotation = np.full((len(time),3,3),np.identity(3))
+            animate(args.st,args.go,time, position, rotation, args.world,
+                    filename = 'episode_'+str(i)+'.mp4',show_axes = True)
+            
+        if terminal and path_length < args.best_path_length:
             args.best_path_length = path_length
             args.final_path = path_list
 
-        args.dataloader = load_dataset(args.train_set,
-                                           args.train_labels, batch_size = 20)
+        args.dataloader = load_dataset(args.train_set, args.train_labels, batch_size = 20)
         train(args)
-        print(f'\n Searching likelihood:{args.epsilon}')
         args.epsilon = update_epsilon(args.epsilon, args.decay_rate) #Update level of epsilon using update_epsilon()
 
         # Track rewards
@@ -483,6 +420,8 @@ def train(args):
     Returns:
         The trained model
     '''
+    print('\nTraining...')
+    
     model = args.model
     optimizer = args.optimizer
     criterion = args.criterion
@@ -519,8 +458,8 @@ def train(args):
 
         args.loss_list.append(epoch_loss)
 
-        if args.log_permit is True:
-            print('Epoch: {} Loss: {:.4f} Acc: {:.4f}'.format(e, epoch_loss, epoch_acc))
+        if args.log_permit is True and e % 100 == 0:
+            print('Epoch: {} Loss: {:.4f}'.format(e, epoch_loss))
 
         if epoch_loss < best_loss:
             best_loss = epoch_loss
@@ -552,14 +491,15 @@ def get_args():
     args.dataloader = None
     args.batch_size = 120
     args.num_epochs = 2000
-    args.max_time = 10
     args.best_path_length = 1E8
     args.optimal_path_length = 0
-    # args.optimizer = torch.optim.AdamW(args.model.parameters(),lr = args.lr)
+    args.max_time = 10
     args.optimizer = torch.optim.Adam(args.model.parameters(),args.lr)
     args.criterion = torch.nn.MSELoss()
-
     args.log_permit = True
+    args.animate_permit = False
+    args.warm_up_permit = False
+    args.persistent_flag = False
 
     args.loss_list = []
     return args
@@ -620,36 +560,19 @@ def get_samples_from_new_map():
 if __name__ == '__main__':
     args, warm_up_set, warm_up_labels = get_samples_from_new_map()
     args.dataloader = load_dataset(warm_up_set,warm_up_labels,batch_size=20)
-    args.train_set = np.zeros((1,23))
-    args.train_labels = np.array([[0]])
-    # args.model = train(args)
-    # Qlearning(args)
-
-    # save_model(args.model)
-    # state = discretized_path[0]
-    # args.num_epochs = 1000
-
-    # all_pairs, action_array = get_all_pairs(args, state)
-
-
-    # maxQ = torch.argmax(args.model.predict(torch.tensor(all_pairs)))
-    # chosen_action = action_array[maxQ]
-    # real_action = action_List[0]
-
-    # print(args.model.predict(torch.tensor(all_pairs)))
-
+    args.train_set = warm_up_set
+    args.train_labels = warm_up_labels
+    if args.warm_up_permit is True:
+        train(args)
+        
     reward_list, position_list, success_list = Qlearning(args)
-    # print(reward_list)
-    # print(position_list)
-    # print(success_list)
+    
     fig = plt.figure()
     ax = Axes3Ds(fig)
-
     ax.plot([args.st[0]], [args.st[1]], [args.st[2]], 'go', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
     ax.plot([args.go[0]],  [args.go[1]],  [args.go[2]], 'r*', markersize=16,
         markeredgewidth=3, markerfacecolor='none')
-    # args.world.draw_line(ax, args.final_path, color='red', linewidth=1)
     args.world.draw_points(ax, args.final_path, color='purple', markersize=8)
     args.world.draw(ax)
     args.occ_map.draw(ax)
@@ -658,7 +581,6 @@ if __name__ == '__main__':
 
     x= np.arange(0,(args.max_episodes/5)+1)
     plt.plot(5*x,success_list)
-
     plt.xlabel('Episode')
     plt.ylabel('Success Rate')
     plt.title('Success Rate')
